@@ -1,0 +1,67 @@
+/* AfriHealth Assistant — custom styles. Theme tokens (__BG__, __CARD__, etc.)
+   are substituted at runtime by components/custom_styles.py based on the
+   active theme (Dark/Light) so this one file serves both palettes. */
+
+.stApp { background-color: __BG__; color: __TEXT__; }
+section[data-testid="stSidebar"] { background-color: __CARD__; border-right: 1px solid __BORDER__; }
+section[data-testid="stSidebar"] * { color: __TEXT__; }
+h1, h2, h3, h4 { color: __TEXT__; }
+
+.app-title { font-size: 1.4rem; font-weight: 700; color: __TEXT__; margin-bottom: 0; }
+.app-version { font-size: 0.75rem; color: __GREY__; margin-top: -6px; }
+
+.status-card {
+    background-color: __CARD__; border: 1px solid __BORDER__; border-radius: 10px;
+    padding: 12px 14px; margin-bottom: 14px;
+}
+.status-dot { height: 10px; width: 10px; background-color: __GREEN__; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.status-dot.offline { background-color: #c0392b; }
+.status-label { font-size: 0.85rem; color: __GREY__; }
+.status-value { font-size: 0.85rem; color: __TEXT__; font-weight: 600; }
+
+div.stButton > button {
+    background-color: __GREEN__; color: __BG__; border: none; border-radius: 8px;
+    font-weight: 600; padding: 0.5rem 1rem; width: 100%;
+}
+div.stButton > button:hover { filter: brightness(1.1); color: __TEXT__; }
+
+section[data-testid="stSidebar"] div[data-testid="stButton"] button {
+    background-color: transparent; color: __TEXT__; border: 1px solid __GREY__;
+    font-weight: 400; text-align: left;
+}
+section[data-testid="stSidebar"] div[data-testid="stButton"] button:hover {
+    border-color: __GREEN__; color: __GREEN__;
+}
+
+.chat-input-row textarea { background-color: __CARD__; color: __TEXT__; border: 1px solid __BORDER__; border-radius: 10px; }
+div[data-testid="stFormSubmitButton"] button {
+    background-color: __GREEN__; color: __BG__; border: none; border-radius: 8px;
+    font-weight: 700; font-size: 1rem; height: 100%; min-height: 44px;
+}
+div[data-testid="stFormSubmitButton"] button:hover { filter: brightness(1.1); color: __TEXT__; }
+
+.topic-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 16px; background-color: __CARD__; border: 1px solid __BORDER__;
+    border-radius: 10px; margin-bottom: 14px;
+}
+.topic-header-title { font-weight: 600; font-size: 0.95rem; }
+.topic-header-meta { font-size: 0.75rem; color: __GREY__; }
+
+.chat-row { display: flex; margin-bottom: 14px; }
+.chat-row.user { justify-content: flex-end; }
+.chat-row.assistant { justify-content: flex-start; }
+.bubble { max-width: 70%; padding: 12px 16px; border-radius: 14px; font-size: 0.95rem; line-height: 1.4; }
+.bubble.user { background-color: __GREEN__; color: __BG__; border-bottom-right-radius: 2px; }
+.bubble.assistant { background-color: __CARD__; color: __TEXT__; border: 1px solid __BORDER__; border-bottom-left-radius: 2px; }
+.bubble-source { margin-top: 6px; font-size: 0.75rem; color: __GREY__; font-style: italic; }
+.bubble-time { font-size: 0.65rem; color: __GREY__; margin-top: 4px; }
+
+.welcome-banner {
+    background: linear-gradient(135deg, __CARD__, __BG__); border: 1px solid __BORDER__;
+    border-radius: 12px; padding: 18px 20px; margin-bottom: 18px;
+}
+.welcome-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 4px; }
+.welcome-sub { color: __GREY__; font-size: 0.9rem; }
+
+.disclaimer { font-size: 0.72rem; color: __GREY__; text-align: center; margin-top: 8px; }

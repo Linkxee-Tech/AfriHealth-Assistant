@@ -1,0 +1,38 @@
+# ===== Frontend =====
+streamlit
+pandas
+requests
+Pillow
+psutil
+
+# ===== Backend - Core =====
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+python-multipart
+aiofiles
+python-dotenv
+
+# ===== Database =====
+sqlalchemy
+alembic
+
+# ===== LLM (install separately after model download) =====
+llama-cpp-python
+
+# ===== RAG =====
+langchain
+langchain-community
+chromadb
+sentence-transformers
+
+# ===== Document processing =====
+pypdf
+python-docx
+easyocr
+
+# ===== Dev / Testing =====
+pytest
+httpx
+pytest-asyncio

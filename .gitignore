@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Environment variables
+.env
+
+# Local databases
+*.db
+*.sqlite3
+frontend/afrihealth.db
+
+# Models (large binary files - downloaded separately, see scripts/download_models.py)
+backend/models/llm/*.gguf
+backend/models/embedding/*
+
+# Vector store / processed data
+backend/data/vector_db/
+backend/data/processed_data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Logs
+*.log
