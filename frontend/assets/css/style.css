@@ -1,67 +1,212 @@
-/* AfriHealth Assistant — custom styles. Theme tokens (__BG__, __CARD__, etc.)
-   are substituted at runtime by components/custom_styles.py based on the
-   active theme (Dark/Light) so this one file serves both palettes. */
+/* AfriHealth Assistant — Premium UI Styles */
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Poppins:wght@600;700&display=swap');
 
-.stApp { background-color: __BG__; color: __TEXT__; }
-section[data-testid="stSidebar"] { background-color: __CARD__; border-right: 1px solid __BORDER__; }
-section[data-testid="stSidebar"] * { color: __TEXT__; }
-h1, h2, h3, h4 { color: __TEXT__; }
+.stApp { 
+    background-color: __BG__; 
+    color: __TEXT__; 
+    font-family: 'Open Sans', sans-serif;
+}
 
-.app-title { font-size: 1.4rem; font-weight: 700; color: __TEXT__; margin-bottom: 0; }
-.app-version { font-size: 0.75rem; color: __GREY__; margin-top: -6px; }
+/* Sidebar Styling */
+section[data-testid="stSidebar"] { 
+    background-color: __CARD__; 
+    border-right: 1px solid __BORDER__; 
+    box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+}
+section[data-testid="stSidebar"] * { 
+    color: __TEXT__; 
+}
 
+/* Typography Enhancements */
+h1, h2, h3, h4, h5, h6, .app-title, [data-testid="stMetricValue"] { 
+    color: __TEXT__ !important; 
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulseGold {
+    0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(255, 215, 0, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+}
+
+/* Base Cards */
 .status-card {
-    background-color: __CARD__; border: 1px solid __BORDER__; border-radius: 10px;
-    padding: 12px 14px; margin-bottom: 14px;
+    background-color: __CARD__; 
+    border: 1px solid __BORDER__; 
+    border-radius: 12px;
+    padding: 16px; 
+    margin-bottom: 16px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    animation: fadeIn 0.4s ease-out;
 }
-.status-dot { height: 10px; width: 10px; background-color: __GREEN__; border-radius: 50%; display: inline-block; margin-right: 6px; }
-.status-dot.offline { background-color: #c0392b; }
-.status-label { font-size: 0.85rem; color: __GREY__; }
-.status-value { font-size: 0.85rem; color: __TEXT__; font-weight: 600; }
+.status-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.05);
+}
 
+/* Status Indicators */
+.status-dot { 
+    height: 10px; width: 10px; 
+    background-color: __GREEN__; 
+    border-radius: 50%; 
+    display: inline-block; 
+    margin-right: 8px; 
+    box-shadow: 0 0 8px __GREEN__;
+}
+.status-dot.offline { 
+    background-color: #c0392b; 
+    box-shadow: 0 0 8px #c0392b;
+}
+.status-label { font-size: 0.85rem; color: __GREY__; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500; }
+.status-value { font-size: 0.95rem; color: __TEXT__; font-weight: 600; }
+
+/* Buttons */
 div.stButton > button {
-    background-color: __GREEN__; color: __BG__; border: none; border-radius: 8px;
-    font-weight: 600; padding: 0.5rem 1rem; width: 100%;
+    background-color: __GREEN__; 
+    color: #ffffff; 
+    border: none; 
+    border-radius: 8px;
+    font-weight: 600; 
+    padding: 0.6rem 1.2rem; 
+    width: 100%;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.1);
 }
-div.stButton > button:hover { filter: brightness(1.1); color: __TEXT__; }
+div.stButton > button:hover { 
+    filter: brightness(1.1); 
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+}
 
+/* Gold Accent Button */
+button.gold-btn {
+    background: linear-gradient(135deg, __GOLD__, #e5c100);
+    color: #0A192F !important;
+    animation: pulseGold 2s infinite;
+}
+
+/* Sidebar Links */
 section[data-testid="stSidebar"] div[data-testid="stButton"] button {
-    background-color: transparent; color: __TEXT__; border: 1px solid __GREY__;
-    font-weight: 400; text-align: left;
+    background-color: transparent; 
+    color: __TEXT__; 
+    border: 1px solid transparent;
+    font-weight: 500; 
+    text-align: left;
+    box-shadow: none;
 }
 section[data-testid="stSidebar"] div[data-testid="stButton"] button:hover {
-    border-color: __GREEN__; color: __GREEN__;
+    border-color: __GREEN__; 
+    color: __GREEN__;
+    background-color: rgba(0, 200, 83, 0.05); /* very subtle tint */
 }
 
-.chat-input-row textarea { background-color: __CARD__; color: __TEXT__; border: 1px solid __BORDER__; border-radius: 10px; }
+/* Chat Input styling */
+.chat-input-row textarea { 
+    background-color: __CARD__; 
+    color: __TEXT__; 
+    border: 1px solid __BORDER__; 
+    border-radius: 12px; 
+    padding: 12px;
+    font-family: 'Open Sans', sans-serif;
+}
 div[data-testid="stFormSubmitButton"] button {
-    background-color: __GREEN__; color: __BG__; border: none; border-radius: 8px;
-    font-weight: 700; font-size: 1rem; height: 100%; min-height: 44px;
+    background-color: __GREEN__; 
+    color: #ffffff; 
+    border: none; 
+    border-radius: 8px;
+    font-weight: 600; 
+    font-size: 1rem; 
+    height: 100%; 
+    min-height: 48px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
 }
-div[data-testid="stFormSubmitButton"] button:hover { filter: brightness(1.1); color: __TEXT__; }
 
-.topic-header {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 10px 16px; background-color: __CARD__; border: 1px solid __BORDER__;
-    border-radius: 10px; margin-bottom: 14px;
-}
-.topic-header-title { font-weight: 600; font-size: 0.95rem; }
-.topic-header-meta { font-size: 0.75rem; color: __GREY__; }
-
-.chat-row { display: flex; margin-bottom: 14px; }
+/* Chat Bubbles */
+.chat-row { display: flex; margin-bottom: 18px; animation: fadeIn 0.3s ease-out; }
 .chat-row.user { justify-content: flex-end; }
 .chat-row.assistant { justify-content: flex-start; }
-.bubble { max-width: 70%; padding: 12px 16px; border-radius: 14px; font-size: 0.95rem; line-height: 1.4; }
-.bubble.user { background-color: __GREEN__; color: __BG__; border-bottom-right-radius: 2px; }
-.bubble.assistant { background-color: __CARD__; color: __TEXT__; border: 1px solid __BORDER__; border-bottom-left-radius: 2px; }
-.bubble-source { margin-top: 6px; font-size: 0.75rem; color: __GREY__; font-style: italic; }
-.bubble-time { font-size: 0.65rem; color: __GREY__; margin-top: 4px; }
-
-.welcome-banner {
-    background: linear-gradient(135deg, __CARD__, __BG__); border: 1px solid __BORDER__;
-    border-radius: 12px; padding: 18px 20px; margin-bottom: 18px;
+.bubble { 
+    max-width: 75%; 
+    padding: 14px 18px; 
+    border-radius: 16px; 
+    font-size: 0.95rem; 
+    line-height: 1.5;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
-.welcome-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 4px; }
-.welcome-sub { color: __GREY__; font-size: 0.9rem; }
+.bubble.user { 
+    background-color: __GREEN__; 
+    color: #ffffff; 
+    border-bottom-right-radius: 4px; 
+}
+.bubble.assistant { 
+    background-color: __CARD__; 
+    color: __TEXT__; 
+    border: 1px solid __BORDER__; 
+    border-bottom-left-radius: 4px; 
+}
+.bubble-source { margin-top: 8px; font-size: 0.75rem; color: __GREY__; font-style: italic; }
+.bubble-time { font-size: 0.65rem; color: __GREY__; margin-top: 6px; }
 
-.disclaimer { font-size: 0.72rem; color: __GREY__; text-align: center; margin-top: 8px; }
+/* Welcome Banner */
+.welcome-banner {
+    background: linear-gradient(135deg, __CARD__, __BG__); 
+    border: 1px solid __BORDER__;
+    border-radius: 16px; 
+    padding: 24px 28px; 
+    margin-bottom: 24px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.04);
+    animation: fadeIn 0.5s ease-out;
+}
+.welcome-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.02em; }
+.welcome-sub { color: __GREY__; font-size: 1rem; }
+
+.disclaimer { font-size: 0.75rem; color: __GREY__; text-align: center; margin-top: 12px; }
+
+/* Login Page Specifics */
+.login-container {
+    max-width: 450px;
+    margin: 0 auto;
+    padding: 40px 30px;
+    background: rgba(17, 34, 64, 0.4);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    animation: fadeIn 0.6s ease-out;
+}
+.login-logo {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 30px;
+}
+.login-title {
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: __TEXT__;
+}
+.login-subtitle {
+    text-align: center;
+    font-size: 0.95rem;
+    color: __GREY__;
+    margin-bottom: 30px;
+}
+/* Streamlit Tabs Styling Overrides for Login */
+div[data-testid="stTabs"] button {
+    font-weight: 600 !important;
+}
+div[data-testid="stTabs"] button[aria-selected="true"] {
+    color: __GOLD__ !important;
+    border-bottom-color: __GOLD__ !important;
+}

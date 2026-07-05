@@ -11,17 +11,19 @@ APP_TAGLINE = "Intelligent Healthcare, Offline. For Africa."
 THEMES = {
     "Dark": {
         "primary_bg": "#0A192F",
-        "card_bg": "#112240",
+        "card_bg": "#1A2A44",
         "accent_green": "#2EAA7D",
+        "accent_gold": "#F5A623",
         "secondary_grey": "#8892B0",
         "text": "#FFFFFF",
-        "border": "#1d2d50",
+        "border": "#2A3A54",
     },
     "Light": {
         "primary_bg": "#F5F7FA",
         "card_bg": "#FFFFFF",
-        "accent_green": "#1E8E62",
-        "secondary_grey": "#5B6478",
+        "accent_green": "#1AB394",
+        "accent_gold": "#F5A623",
+        "secondary_grey": "#8892B0",
         "text": "#0A192F",
         "border": "#D9DEE8",
     },
@@ -68,4 +70,4 @@ DEFAULT_MODEL_SETTINGS = {
 
 # --- Backend connection (not yet live) ---
 BACKEND_BASE_URL = "http://localhost:8000"
-BACKEND_CONNECTED = False  # flip to True once FastAPI backend is running
+BACKEND_CONNECTED = True  # Connected to FastAPI backend

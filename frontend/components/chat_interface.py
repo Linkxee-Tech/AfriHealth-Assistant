@@ -20,10 +20,19 @@ import config
 from utils import api_client
 from utils.formatters import now_time, truncate, messages_to_report
 
-_LOGO_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "assets", "images", "logo.png"
-)
+def _get_page_logo_path():
+    theme = st.session_state.get("theme", "Dark")
+    logo_file = "logo_light.png" if theme == "Light" else "logo.png"
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "assets", "images", logo_file
+    )
+    if not os.path.exists(path):
+        path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "assets", "images", "logo.png"
+        )
+    return path
 
 
 def render_chat_interface():
@@ -63,8 +72,9 @@ def render_chat_interface():
     # ------------------------------------------------------------------
     h_col1, h_col2 = st.columns([1, 8])
     with h_col1:
-        if os.path.exists(_LOGO_PATH):
-            st.image(_LOGO_PATH, width=52)
+        logo_path = _get_page_logo_path()
+        if os.path.exists(logo_path):
+            st.image(logo_path, width=52)
     with h_col2:
         st.title(config.APP_NAME)
 

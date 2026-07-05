@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     # CORS
     ALLOWED_ORIGINS: list = ["http://localhost:8501", "http://127.0.0.1:8501"]
 
+    # API Keys
+    GEMINI_API_KEY: str = ""
+
     model_config = {"env_file": str(BASE_DIR.parent / ".env"), "extra": "ignore"}
 
 

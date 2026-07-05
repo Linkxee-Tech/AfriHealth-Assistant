@@ -11,7 +11,7 @@ logger = get_logger(__name__)
 
 
 class DocumentService:
-    def process_and_store(self, file_bytes: bytes, filename: str) -> Dict:
+    def process_and_store(self, file_bytes: bytes, filename: str, user_id: int = None, patient_id: int = None) -> Dict:
         """
         Full pipeline:
           1. Extract text (OCR / PDF / DOCX / TXT)
@@ -26,8 +26,15 @@ class DocumentService:
         # Add chunks to RAG
         chunks_added = 0
         if result["chunks"] and rag_engine._initialized:
+            # Create metadata dict
+            metadata = {"source": filename}
+            if user_id is not None:
+                metadata["user_id"] = user_id
+            if patient_id is not None:
+                metadata["patient_id"] = patient_id
+
             docs_to_add = [
-                {"text": c["text"], "source": filename, "chunk_id": c["chunk_id"]}
+                {"text": c["text"], "metadata": {**metadata, "chunk_id": c["chunk_id"]}}
                 for c in result["chunks"]
             ]
             chunks_added = rag_engine.add_documents(docs_to_add)
@@ -45,6 +52,7 @@ class DocumentService:
             file_type=result["file_type"],
             content=result["raw_text"][:5000],   # store first 5k chars
             analysis_result=analysis,
+            user_id=user_id,
         )
 
         return {

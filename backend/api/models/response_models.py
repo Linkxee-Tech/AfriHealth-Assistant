@@ -51,6 +51,34 @@ class SymptomAnalysisResponse(BaseModel):
     do_not: List[str] = []
 
 
+class ClinicalSupportResponse(BaseModel):
+    urgency: str
+    advice: str
+    do_not: List[str] = []
+    identified_risk_factors: List[str] = []
+    epidemiological_flags: List[str] = []
+    chw_action_plan: str = ""
+
+
+class PersonalizedCoachResponse(BaseModel):
+    insights: List[str] = []
+    risk_alerts: List[str] = []
+    recommendations: List[str] = []
+    follow_up: List[str] = []
+
+
+class MedicationInteractionResponse(BaseModel):
+    interactions: List[str] = []
+    safe_to_continue: bool = True
+    notes: List[str] = []
+
+
+class TreatmentProtocolResponse(BaseModel):
+    condition: str
+    protocol: List[str] = []
+    references: List[str] = []
+
+
 class DocumentAnalysisResponse(BaseModel):
     doc_id: int
     filename: str

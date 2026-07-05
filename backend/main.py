@@ -9,6 +9,16 @@ Blueprint (router) pattern:
 
 from contextlib import asynccontextmanager
 
+from pathlib import Path
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from project .env into os.environ so
+# modules using os.getenv(...) (e.g. GOOGLE_API_KEY) can read them.
+dotenv_path = Path(__file__).resolve().parent.parent / ".env"
+if dotenv_path.exists():
+    load_dotenv(dotenv_path)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -22,11 +32,15 @@ from backend.core.rag_engine import rag_engine
 
 # Routers (blueprints)
 from backend.api.routes.system    import system_router
+from backend.api.routes.auth      import auth_router
 from backend.api.routes.chat      import chat_router
 from backend.api.routes.history   import history_router
 from backend.api.routes.health    import health_router
 from backend.api.routes.documents import documents_router
-from backend.api.routes.auth      import auth_router
+from backend.api.routes.patients  import patients_router, visits_router
+from backend.api.routes.settings  import settings_router
+from backend.api.routes.online    import online_router
+from backend.api.routes.clinical  import router as clinical_router
 
 logger = get_logger(__name__)
 
@@ -91,14 +105,19 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Register routers (blueprints) with /api/v1 prefix
-    prefix = "/api/v1"
+    # Register routers (blueprints) without /api/v1 prefix to match verification commands
+    prefix = ""
     app.include_router(system_router,    prefix=prefix)
+    app.include_router(auth_router,      prefix=prefix)
     app.include_router(chat_router,      prefix=prefix)
     app.include_router(history_router,   prefix=prefix)
-    app.include_router(health_router,    prefix=prefix)
     app.include_router(documents_router, prefix=prefix)
-    app.include_router(auth_router,      prefix=prefix)
+    app.include_router(patients_router,  prefix=prefix)
+    app.include_router(visits_router,    prefix=prefix)
+    app.include_router(health_router,    prefix=prefix)
+    app.include_router(settings_router,  prefix=prefix)
+    app.include_router(online_router,    prefix=prefix)
+    app.include_router(clinical_router,  prefix=prefix)
 
     # Root redirect to docs
     @app.get("/", include_in_schema=False)

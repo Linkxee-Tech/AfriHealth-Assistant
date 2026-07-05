@@ -61,16 +61,20 @@ def init_db():
 # ---------------------------------------------------------------------------
 # Chat history
 # ---------------------------------------------------------------------------
-def save_session(messages):
+def save_session(messages, session_id=None):
     if not messages:
         return None
     topic = messages[0]["content"][:80]
     with get_conn() as conn:
-        cur = conn.execute(
-            "INSERT INTO chat_sessions (started_at, topic) VALUES (?, ?)",
-            (datetime.now().strftime("%Y-%m-%d %H:%M"), topic),
-        )
-        session_id = cur.lastrowid
+        if session_id:
+            conn.execute("DELETE FROM chat_messages WHERE session_id = ?", (session_id,))
+            conn.execute("UPDATE chat_sessions SET topic = ? WHERE id = ?", (topic, session_id))
+        else:
+            cur = conn.execute(
+                "INSERT INTO chat_sessions (started_at, topic) VALUES (?, ?)",
+                (datetime.now().strftime("%Y-%m-%d %H:%M"), topic),
+            )
+            session_id = cur.lastrowid
         for m in messages:
             conn.execute(
                 "INSERT INTO chat_messages (session_id, role, content, source, msg_time) "

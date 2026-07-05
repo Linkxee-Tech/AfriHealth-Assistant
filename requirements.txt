@@ -13,6 +13,8 @@ pydantic-settings
 python-multipart
 aiofiles
 python-dotenv
+passlib[bcrypt]
+bcrypt<4
 
 # ===== Database =====
 sqlalchemy
@@ -36,3 +38,23 @@ easyocr
 pytest
 httpx
 pytest-asyncio
+
+# ===== Online / Hybrid Mode =====
+# Web Search
+duckduckgo-search
+google-search-results
+
+# Cloud AI & APIs
+google-generativeai
+huggingface-hub
+requests
+
+# Caching & Sync
+redis
+sqlalchemy
+
+# Monitoring
+prometheus-client
+
+# Utilities
+tenacity

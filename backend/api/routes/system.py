@@ -9,7 +9,7 @@ from backend.core.llm_engine import llm_engine
 from backend.core.rag_engine import rag_engine
 from backend.config import settings
 
-system_router = APIRouter(prefix="/system", tags=["System"])
+system_router = APIRouter(tags=["System"])
 
 
 @system_router.get("/health", summary="Basic health check")

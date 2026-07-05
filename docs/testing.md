@@ -9,7 +9,7 @@ pytest backend/tests/ -v
 ## Frontend Tests
 ```bash
 cd frontend && pytest tests/test_components.py -v
-# 11 tests covering all 6 pages and key interactions
+# 11 tests covering all 9 pages and key interactions
 ```
 
 ## Running Both

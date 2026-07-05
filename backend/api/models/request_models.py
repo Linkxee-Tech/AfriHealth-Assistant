@@ -1,6 +1,6 @@
 """Pydantic request models for all API endpoints."""
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -40,3 +40,30 @@ class AnalyzeVitalsRequest(BaseModel):
 
 class AnalyzeSymptomsRequest(BaseModel):
     symptoms: List[str] = Field(..., min_length=1, description="List of symptom strings")
+
+
+class PatientContextRequest(BaseModel):
+    age: Optional[int] = Field(None, ge=0, le=120, description="Patient age in years")
+    gender: Optional[str] = Field(None, description="Patient gender")
+    pregnant: Optional[bool] = Field(False, description="Pregnancy status")
+    height_cm: Optional[float] = Field(None, gt=0, description="Height in centimeters")
+    weight_kg: Optional[float] = Field(None, gt=0, description="Weight in kilograms")
+    activity_level: Optional[str] = Field(None, description="Lifestyle activity level")
+
+
+class PersonalizedCoachRequest(BaseModel):
+    metrics: List[Dict[str, Any]] = Field(..., description="List of recorded metrics")
+    patient_context: Optional[PatientContextRequest] = None
+
+
+class MedicationInteractionRequest(BaseModel):
+    medications: List[str] = Field(..., min_length=1, description="List of medications to check")
+
+
+class TreatmentProtocolRequest(BaseModel):
+    condition: str = Field(..., min_length=1, description="Medical condition for protocol lookup")
+
+
+class ClinicalTriageRequest(BaseModel):
+    symptoms: List[str] = Field(..., min_length=1, description="List of symptom strings")
+    patient_context: Optional[PatientContextRequest] = None

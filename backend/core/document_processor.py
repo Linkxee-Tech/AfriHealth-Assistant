@@ -7,6 +7,8 @@ import io
 from pathlib import Path
 from typing import List, Dict
 
+from backend.core.rag_engine import rag_engine
+from backend.core.ocr_engine import ocr_engine
 from backend.config import settings
 from backend.utils.logger import get_logger
 
@@ -102,17 +104,18 @@ class DocumentProcessor:
     # ------------------------------------------------------------------
     # Full pipeline
     # ------------------------------------------------------------------
-    def process_document(self, file_bytes: bytes, filename: str) -> Dict:
+    def process_document(self, file_bytes: bytes, filename: str, file_type: str = None) -> Dict:
         """Detect file type, extract text, chunk, return metadata dict."""
         ext = Path(filename).suffix.lower()
         if ext == ".pdf":
             text = self.load_pdf(file_bytes)
         elif ext in (".docx", ".doc"):
             text = self.load_docx(file_bytes)
-        elif ext in (".jpg", ".jpeg", ".png", ".bmp", ".tiff"):
-            text = self.load_image(file_bytes)
+        elif file_type in ("image/jpeg", "image/png", "image/bmp"):
+            # Use OCR Engine for images
+            text = ocr_engine.extract_text(file_bytes)
         else:
-            text = self.load_text(file_bytes)
+            text = f"[Unsupported file type: {file_type}]"
 
         chunks = self.chunk_document(text)
         return {

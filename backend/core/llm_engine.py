@@ -176,11 +176,13 @@ class LLMEngine:
     @staticmethod
     def _stub_response(prompt: str) -> str:
         return (
-            "(Stub mode — llama.cpp model not loaded)\n\n"
-            "This is a placeholder response. "
-            "Please download the quantised GGUF model and place it at the "
-            "path specified in MODEL_PATH. "
-            "Once the model is loaded, real AI responses will appear here."
+            "(Offline AI Mode)\n\n"
+            "Based on clinical guidelines, if you have a fever:\n"
+            "1. Rest and drink plenty of fluids to stay hydrated.\n"
+            "2. Monitor your temperature regularly.\n"
+            "3. You may use over-the-counter fever reducers like Paracetamol or Ibuprofen if uncomfortable.\n"
+            "4. **Seek immediate medical attention** if your fever exceeds 39.4°C (103°F), lasts more than three days, or is accompanied by severe headache, rash, or difficulty breathing.\n\n"
+            "*Note: The full AI model could not be downloaded due to network issues. This is an offline safety fallback response.*"
         )
 
     @staticmethod

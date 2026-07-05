@@ -3,8 +3,9 @@ Chat routes — POST /chat, POST /chat/stream
 Blueprint: chat_router
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
+from backend.api.dependencies.auth import get_current_user
 
 from backend.api.models.request_models import ChatRequest, SaveConversationRequest
 from backend.api.models.response_models import ChatResponse, SuccessResponse
@@ -21,7 +22,7 @@ chat_router = APIRouter(prefix="/chat", tags=["Chat"])
     response_model=ChatResponse,
     summary="Send a health question and get a full response",
 )
-async def chat(request: ChatRequest):
+async def chat(request: ChatRequest, current_user = Depends(get_current_user)):
     """
     Blocking chat endpoint.
     Retrieves relevant context from the RAG knowledge base,
@@ -45,7 +46,7 @@ async def chat(request: ChatRequest):
     "/stream",
     summary="Stream a health question response token by token",
 )
-async def chat_stream(request: ChatRequest):
+async def chat_stream(request: ChatRequest, current_user = Depends(get_current_user)):
     """
     Streaming chat endpoint — returns text/event-stream.
     First chunk is a JSON sources header: __SOURCES__:[...]
@@ -74,12 +75,13 @@ async def chat_stream(request: ChatRequest):
     response_model=SuccessResponse,
     summary="Save a conversation to history",
 )
-async def save_conversation(request: SaveConversationRequest):
+async def save_conversation(request: SaveConversationRequest, current_user = Depends(get_current_user)):
     """Persist a conversation (list of messages) to SQLite."""
     try:
         session_id = chat_service.save_conversation(
             messages=request.messages,
             session_id=request.session_id,
+            user_id=current_user.id
         )
         return SuccessResponse(success=True, message=f"Saved as session {session_id}")
     except Exception as exc:

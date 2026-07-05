@@ -7,6 +7,12 @@ entirely on standard laptop hardware (Intel i5 / Ryzen 5, 8GB RAM) with zero
 reliance on cloud APIs, combining a locally quantised LLM with
 retrieval-augmented generation over trusted medical sources.
 
+## Strategic Roadmap
+
+1. **Phase 1 (MVP)**: Deliver the core AI consultation experience with offline inference, RAG, document analysis, health metrics, and a polished UI.
+2. **Phase 2**: Add multilingual support, OCR, voice, reporting, advanced analytics, and broader clinical tools.
+3. **Phase 3**: Expand into a comprehensive offline clinical decision-support platform for healthcare providers and communities.
+
 ## Project Status
 
 | Part | Status |
@@ -26,7 +32,7 @@ AfriHealth-Assistant/
 │   │                        4 Chat History · 5 Settings · 6 About
 │   ├── components/         # Reusable UI pieces (sidebar, chat, metrics, etc.)
 │   ├── utils/               # api_client (backend seam), session_state, formatters
-│   ├── assets/              # css/style.css, images/logo.png + favicon.ico
+│   ├── assets/              # css/style.css, images/logo.png,logo_light.png + favicon.ico
 │   └── tests/               # pytest + Streamlit AppTest suite
 ├── backend/                 # FastAPI + llama.cpp + RAG (not yet implemented)
 ├── knowledge_base/          # RAG knowledge base builder (not yet implemented)
@@ -62,22 +68,6 @@ SQLite / stub generators. Once FastAPI is running, flip that flag and each
 function in `api_client.py` switches to real HTTP calls — no changes needed
 in `pages/` or `components/`.
 
-## Features implemented (frontend)
-
-- 💬 **Chat** — multi-line input, prominent Send button, word-by-word
-  streaming response rendering, source citation display, quick-question
-  shortcuts, New Chat (archives to history), Export Report.
-- 📊 **Health Metrics** — log Blood Pressure, Heart Rate, Blood Sugar,
-  Weight, Temperature, SpO2, Sleep Hours; latest-reading cards; trend
-  charts; date-range filter; CSV export; delete entries.
-- 📁 **Document Analysis** — file uploader (image/PDF/docx/txt), processing
-  status, extracted-text + AI-interpretation stub (OCR/RAG pending backend).
-- 📋 **Chat History** — searchable list of archived conversations, load back
-  into the active chat, delete, export all history.
-- ⚙️ **Settings** — model parameters (temperature, max tokens, top-p, thread
-  count), Dark/Light theme, language (English/Hausa/Swahili), data
-  management (clear chat, delete all history, reset to defaults).
-- 📖 **About** — project info, team/role split, tech stack, license.
 
 ## License
 
