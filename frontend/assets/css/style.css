@@ -17,6 +17,53 @@ section[data-testid="stSidebar"] * {
     color: __TEXT__; 
 }
 
+/* Keep Streamlit's automatic page navigation on the same theme as the app. */
+section[data-testid="stSidebar"] [data-testid="stSidebarNav"],
+section[data-testid="stSidebar"] [data-testid="stSidebarNav"] ul {
+    background: transparent !important;
+}
+section[data-testid="stSidebar"] [data-testid="stSidebarNav"] a {
+    color: __TEXT__ !important;
+    background: transparent !important;
+    border-radius: 8px;
+    margin: 2px 0;
+}
+section[data-testid="stSidebar"] [data-testid="stSidebarNav"] a:hover {
+    color: __GREEN__ !important;
+    background: __CARD__ !important;
+}
+section[data-testid="stSidebar"] [data-testid="stSidebarNav"] a[aria-current="page"] {
+    color: #ffffff !important;
+    background: __GREEN__ !important;
+}
+
+.sidebar-mode-pill {
+    padding: 6px 12px;
+    border-radius: 20px;
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-top: 10px;
+}
+.sidebar-mode-pill.hybrid {
+    background: rgba(46, 170, 125, 0.12);
+    border: 1px solid __GREEN__;
+    color: __GREEN__;
+}
+.sidebar-mode-pill.offline {
+    background: rgba(192, 57, 43, 0.12);
+    border: 1px solid #c0392b;
+    color: #c0392b;
+}
+.sidebar-system-status {
+    color: __TEXT__;
+    font-size: 0.9rem;
+    margin: 10px 0;
+}
+.sidebar-status-online { color: __GREEN__; }
+.sidebar-status-offline { color: __TEXT__; }
+.sidebar-separator { color: __GREY__; margin: 0 6px; }
+
 /* Typography Enhancements */
 h1, h2, h3, h4, h5, h6, .app-title, [data-testid="stMetricValue"] { 
     color: __TEXT__ !important; 

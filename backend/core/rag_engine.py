@@ -24,14 +24,14 @@ try:
     from chromadb.config import Settings as ChromaSettings
     _CHROMA_AVAILABLE = True
 except ImportError:
-    logger.warning("chromadb not installed — RAG running in LLM-only mode.")
+    logger.warning("chromadb not installed - RAG running in LLM-only mode.")
 
 _LANGCHAIN_AVAILABLE = False
 try:
-    from langchain.text_splitter import RecursiveCharacterTextSplitter
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
     _LANGCHAIN_AVAILABLE = True
 except ImportError:
-    logger.warning("langchain not installed — using built-in chunking.")
+    logger.warning("langchain not installed - using built-in chunking.")
 
 
 class RAGEngine:
@@ -66,7 +66,7 @@ class RAGEngine:
         if self._initialized:
             return
         if not _CHROMA_AVAILABLE:
-            logger.warning("ChromaDB unavailable — RAG in LLM-only mode.")
+            logger.warning("ChromaDB unavailable - RAG in LLM-only mode.")
             self._initialized = True
             return
         try:
@@ -80,7 +80,7 @@ class RAGEngine:
                 metadata={"hnsw:space": "cosine"},
             )
             logger.info(
-                "RAG engine initialised — %d documents in knowledge base.",
+                "RAG engine initialised - %d documents in knowledge base.",
                 self._collection.count(),
             )
         except Exception as exc:
@@ -150,7 +150,7 @@ class RAGEngine:
         language: str = "English",
         top_k: int = 3,
     ) -> Generator[str, None, None]:
-        """Streaming RAG answer — yields text tokens."""
+        """Streaming RAG answer - yields text tokens."""
         if not self._initialized:
             self.initialize()
         if self._llm is None:
@@ -194,12 +194,15 @@ class RAGEngine:
                 {"source": d.get("source", "Unknown"), "chunk_id": str(d.get("chunk_id", i))}
                 for i, d in enumerate(documents)
             ]
-            self._collection.upsert(
-                ids=ids,
-                embeddings=embeddings,
-                documents=texts,
-                metadatas=metadatas,
-            )
+            batch_size = 4000
+            for start in range(0, len(documents), batch_size):
+                end = start + batch_size
+                self._collection.upsert(
+                    ids=ids[start:end],
+                    embeddings=embeddings[start:end],
+                    documents=texts[start:end],
+                    metadatas=metadatas[start:end],
+                )
             logger.info("Added %d chunks to knowledge base.", len(documents))
             return len(documents)
         except Exception as exc:

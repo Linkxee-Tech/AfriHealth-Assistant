@@ -14,6 +14,21 @@ def _get_logo_path():
     )
 
 
+def _logout():
+    """Clear authenticated and user-scoped state before returning to login."""
+    for key in (
+        "access_token",
+        "username",
+        "current_session_id",
+        "messages",
+        "response_sources",
+        "selected_patient_id",
+        "patient_view",
+    ):
+        st.session_state.pop(key, None)
+    st.switch_page("app.py")
+
+
 def render_sidebar():
     with st.sidebar:
         logo_col, title_col = st.columns([1, 4])
@@ -66,7 +81,34 @@ def render_sidebar():
         )
         
         st.markdown("---")
+        st.markdown("**Navigation**")
         
+        # Determine user role
+        if "is_admin" not in st.session_state:
+            from utils.api_client import get_me
+            profile = get_me()
+            st.session_state["is_admin"] = profile.get("is_admin", False)
+            
+        is_admin = st.session_state.get("is_admin", False)
+        
+        if is_admin:
+            st.page_link("pages/12_📈_Admin.py", label="📈 Admin Dashboard")
+            st.page_link("pages/7_⚙️_Settings.py", label="⚙️ Settings")
+            st.page_link("pages/8_📖_About.py", label="📖 About")
+        else:
+            st.page_link("pages/1_💬_Chat.py", label="💬 Chat")
+            st.page_link("pages/9_🔬_Symptom_Checker.py", label="🔬 Symptom Checker")
+            st.page_link("pages/10_🚨_Outbreak_Alerts.py", label="🚨 Outbreak Alerts")
+            st.page_link("pages/11_💊_Medications.py", label="💊 Medications")
+            st.page_link("pages/5_👨‍⚕️_Patients.py", label="👨‍⚕️ Patients")
+            st.page_link("pages/2_📊_Health_Metrics.py", label="📊 Health Metrics")
+            st.page_link("pages/3_📁_Documents.py", label="📁 Documents")
+            st.page_link("pages/4_📋_History.py", label="📋 History")
+            st.page_link("pages/6_🩺_Clinical_Support.py", label="🩺 Clinical Support")
+            st.page_link("pages/7_⚙️_Settings.py", label="⚙️ Settings")
+            st.page_link("pages/8_📖_About.py", label="📖 About")
+            
+        st.markdown("---")
         st.markdown("**Language**")
         st.session_state.language = st.selectbox(
             "Language",
@@ -75,6 +117,10 @@ def render_sidebar():
             label_visibility="collapsed",
             key="sidebar_language_select",
         )
+
+        st.markdown("---")
+        if st.button("🚪 Log out", key="sidebar_logout", width="stretch"):
+            _logout()
 
         st.markdown("---")
         st.markdown(

@@ -4,24 +4,53 @@ Authentication dependencies and utilities.
 from datetime import datetime, timedelta
 from typing import Optional
 import os
+import secrets
+from pathlib import Path
 import jwt
-from passlib.context import CryptContext
+import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from backend.database.db_manager import db_manager
+from backend.config import settings
 
-SECRET_KEY = os.getenv("SECRET_KEY", "afrihealth_super_secret_key_change_in_production")
+def _load_secret_key() -> str:
+    """Load a configured JWT secret or create a persistent local secret."""
+    configured = os.getenv("SECRET_KEY", "").strip()
+    if configured and configured != "change-this-in-a-local-secrets-file":
+        return configured
+
+    secret_path = Path(settings.DB_PATH).expanduser().resolve().parent / ".secret_key"
+    try:
+        if secret_path.exists():
+            value = secret_path.read_text(encoding="utf-8").strip()
+            if value:
+                return value
+        secret_path.parent.mkdir(parents=True, exist_ok=True)
+        value = secrets.token_urlsafe(48)
+        secret_path.write_text(value, encoding="utf-8")
+        try:
+            secret_path.chmod(0o600)
+        except OSError:
+            pass
+        return value
+    except OSError as exc:
+        raise RuntimeError(
+            "SECRET_KEY is not configured and a persistent local secret could not be created. "
+            "Set SECRET_KEY in .env before starting the backend."
+        ) from exc
+
+
+SECRET_KEY = _load_secret_key()
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 1 week
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
 def get_password_hash(password):
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()

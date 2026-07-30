@@ -14,6 +14,8 @@ import psutil
 
 def render_status_indicator():
     online  = st.session_state.get("model_loaded", False)
+    mode = st.session_state.get("processing_mode", "OFFLINE")
+    gemini_configured = st.session_state.get("gemini_configured", False)
     mem_gb  = st.session_state.get("memory_usage_gb", 0.0)
     last_ms = st.session_state.get("last_response_ms", None)
 
@@ -36,7 +38,11 @@ def render_status_indicator():
             </div>
             <div style="margin-top:4px;">
                 <span class="status-label">Mode:</span>
-                <span class="status-value"> 100% Offline</span>
+                <span class="status-value"> {mode}</span>
+            </div>
+            <div style="margin-top:4px;">
+                <span class="status-label">Cloud fallback:</span>
+                <span class="status-value"> {"Configured" if gemini_configured else "Unavailable"}</span>
             </div>
         </div>
         """,

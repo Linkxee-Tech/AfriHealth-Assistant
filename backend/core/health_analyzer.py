@@ -53,6 +53,26 @@ TREATMENT_PROTOCOLS = {
         "Provide supportive care including fluids and rest.",
         "Refer to hospital if respiratory distress or hypoxia is present.",
     ],
+    "typhoid": [
+        "Confirm diagnosis (Widal test, blood culture, or strong clinical features).",
+        "Administer appropriate antibiotic therapy (e.g., Ciprofloxacin, Ceftriaxone, or Azithromycin based on local resistance).",
+        "Provide supportive care: oral/intravenous rehydration and paracetamol for fever control.",
+        "Monitor closely for complications: intestinal perforation, bleeding, or altered mental status (require urgent referral).",
+        "Educate patient/family on food safety, hygiene, hand washing, and safe drinking water.",
+    ],
+    "cholera": [
+        "Assess dehydration level immediately (None, Some, Severe).",
+        "Begin immediate rehydration: Oral Rehydration Salts (ORS) for mild/moderate, IV fluids (Ringer's Lactate) for severe.",
+        "Administer an appropriate antibiotic (e.g., Doxycycline or Azithromycin) to reduce fluid requirements and duration.",
+        "Provide zinc supplementation for children under 5 years.",
+        "Strict hygiene, quarantine protocols, and notify local health authorities immediately.",
+    ],
+    "dehydration": [
+        "Assess severity: dry mouth, sunken eyes, skin pinch, low urine output.",
+        "For mild to moderate dehydration, administer Oral Rehydration Salts (ORS) in small, frequent sips.",
+        "For severe dehydration or inability to drink, initiate IV rehydration immediately.",
+        "Address the underlying cause (e.g., diarrhea, vomiting, heat illness).",
+    ],
 }
 
 
@@ -60,7 +80,7 @@ class HealthAnalyzer:
     """Analyzes health metrics and symptoms."""
 
     def __init__(self):
-        pass
+        self.vital_ranges = VITAL_RANGES
 
     # ------------------------------------------------------------------
     def check_vitals(self, metric_type: str, value_str: str) -> Dict:
@@ -232,9 +252,13 @@ class HealthAnalyzer:
             if advice["urgency"] in {"High", "Emergency"}:
                 risk_alerts.append(f"{metric_type}: {advice['message']}")
             if metric_type == "Sleep Hours":
-                if float(value) < 7:
+                try:
+                    sleep_hours = float(value)
+                except (TypeError, ValueError):
+                    sleep_hours = None
+                if sleep_hours is not None and sleep_hours < 7:
                     recommendations.append("Increase sleep duration to 7-9 hours per night for better health.")
-                else:
+                elif sleep_hours is not None:
                     recommendations.append("Maintain your sleep routine and quality.")
             if metric_type == "Weight" and patient_context:
                 height = patient_context.get("height_cm")

@@ -71,10 +71,45 @@ Please answer based on your training knowledge, clearly stating:
 3. A recommendation to consult a healthcare professional.
 """
 
+CLINICAL_PROMPT_TEMPLATE = """You are a cautious clinical decision-support assistant.
+Use only supplied evidence, state uncertainty, never make a definitive diagnosis,
+and advise urgent professional care for red flags.
+Patient information: {context}
+Symptoms/question: {question}
+"""
+
+SYSTEM_PROMPT_YORUBA = """
+Iwo ni AfriHealth Assistant, oluranlowo AI ilera fun awon agbegbe Afirika.
+Fun alaye ilera ti o tọ ati igbẹkẹle da lori itọsọna WHO ati awọn orisun iṣoogun ti a fọwọsi.
+Ẹ fesi ni Yoruba ati Gẹẹsi nigba ti o ba wulo.
+"""
+
+SYSTEM_PROMPT_IGBO = """
+I bu AfriHealth Assistant, onye inyemaka AI ahụike maka obodo Africa.
+Nye ozi ahụike ziri ezi ma e kwere ekwe dabere na nduzi WHO na isi mmalite ahụike a kwadoro.
+Za n'Igbo na Bekee mgbe ọ dị mkpa.
+"""
+
+SYSTEM_PROMPT_FRENCH = """
+Vous êtes AfriHealth Assistant, un assistant IA de santé pour les communautés africaines.
+Fournissez des informations de santé précises et fiables basées sur les directives de l'OMS.
+Répondez en français et en anglais si nécessaire.
+"""
+
+SYSTEM_PROMPT_PIDGIN = """
+You be AfriHealth Assistant, AI health helper for African people dem.
+Give correct and trusted health information wey follow WHO guidelines and good medical sources.
+Answer in Pidgin English and normal English when e make sense.
+"""
+
 LANGUAGE_SYSTEM_PROMPTS = {
     "English": SYSTEM_PROMPT_MEDICAL,
     "Hausa": SYSTEM_PROMPT_HAUSA,
     "Swahili": SYSTEM_PROMPT_SWAHILI,
+    "Yoruba": SYSTEM_PROMPT_YORUBA,
+    "Igbo": SYSTEM_PROMPT_IGBO,
+    "French": SYSTEM_PROMPT_FRENCH,
+    "Pidgin": SYSTEM_PROMPT_PIDGIN,
 }
 
 
@@ -82,7 +117,27 @@ def get_system_prompt(language: str = "English") -> str:
     return LANGUAGE_SYSTEM_PROMPTS.get(language, SYSTEM_PROMPT_MEDICAL)
 
 
-def build_rag_prompt(question: str, context: str) -> str:
+def build_rag_prompt(question: str, context: str, detail_level: str = "Standard") -> str:
+    # Inject detail level instruction
+    length_instruction = ""
+    if detail_level.lower() == "brief":
+        length_instruction = "\n- Keep your answer extremely brief and concise (2-3 sentences maximum)."
+    elif detail_level.lower() == "detailed":
+        length_instruction = "\n- Provide a very detailed, comprehensive answer covering multiple aspects, step-by-step."
+        
     if context.strip():
-        return RAG_PROMPT_TEMPLATE.format(question=question, context=context)
-    return RAG_PROMPT_NO_CONTEXT.format(question=question)
+        prompt = RAG_PROMPT_TEMPLATE.format(question=question, context=context)
+    else:
+        prompt = RAG_PROMPT_NO_CONTEXT.format(question=question)
+        
+    if length_instruction:
+        # Insert length instruction before the Answer: block
+        prompt = prompt.replace("Answer:", f"Length constraint:{length_instruction}\n\nAnswer:")
+        
+    return prompt
+
+
+def get_prompt(question: str, context: str = "", template: str = "rag") -> str:
+    if template.lower() == "clinical":
+        return CLINICAL_PROMPT_TEMPLATE.format(context=context, question=question)
+    return build_rag_prompt(question, context)

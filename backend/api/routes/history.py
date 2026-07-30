@@ -13,6 +13,7 @@ from backend.utils.logger import get_logger
 
 logger = get_logger(__name__)
 history_router = APIRouter(prefix="/chat/history", tags=["Chat History"])
+conversation_router = APIRouter(prefix="/conversations", tags=["Conversations"])
 
 
 @history_router.get(
@@ -25,13 +26,33 @@ async def list_history(limit: int = Query(100, ge=1, le=500), current_user = Dep
 
 
 @history_router.get(
+    "/export",
+    summary="Export all chat history as JSON",
+)
+async def export_history(current_user = Depends(get_current_user)):
+    import json
+    from fastapi.responses import StreamingResponse
+    import io
+
+    sessions = history_service.list_sessions(limit=1000, user_id=current_user.id)
+    output = io.StringIO()
+    json.dump(sessions, output, indent=2)
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="application/json",
+        headers={"Content-Disposition": "attachment; filename=afrihealth_history.json"},
+    )
+
+
+@history_router.get(
     "/{session_id}",
     response_model=List[MessageOut],
     summary="Get all messages in a conversation",
 )
 async def get_conversation(session_id: str, current_user = Depends(get_current_user)):
-    messages = history_service.get_session(session_id)
-    if messages is None:
+    messages = history_service.get_session(session_id, user_id=current_user.id)
+    if not messages:
         raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
     return [MessageOut(**m) for m in messages]
 
@@ -49,34 +70,37 @@ async def save_history(payload: dict, current_user = Depends(get_current_user)):
 
 
 @history_router.delete(
+    "",
+    response_model=SuccessResponse,
+    summary="Delete all saved conversations",
+)
+async def delete_all_conversations(current_user = Depends(get_current_user)):
+    deleted = history_service.delete_all_sessions(user_id=current_user.id)
+    return SuccessResponse(success=True, message=f"Deleted {deleted} conversation(s)")
+
+
+@history_router.delete(
     "/{session_id}",
     response_model=SuccessResponse,
     summary="Delete a conversation",
 )
 async def delete_conversation(session_id: str, current_user = Depends(get_current_user)):
-    # Note: A real app would check if the session belongs to current_user before deleting.
-    deleted = history_service.delete_session(session_id)
+    deleted = history_service.delete_session(session_id, user_id=current_user.id)
     if not deleted:
         raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
     return SuccessResponse(success=True, message=f"Deleted session {session_id}")
 
-@history_router.get(
-    "/export",
-    summary="Export all chat history as JSON",
-)
-async def export_history(current_user = Depends(get_current_user)):
-    import json
-    from fastapi.responses import StreamingResponse
-    import io
-    
-    sessions = history_service.list_sessions(limit=1000, user_id=current_user.id)
-    
-    output = io.StringIO()
-    json.dump(sessions, output, indent=2)
-    output.seek(0)
-    
-    return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="application/json",
-        headers={"Content-Disposition": "attachment; filename=afrihealth_history.json"},
-    )
+
+@conversation_router.get("", response_model=List[ConversationSummary])
+async def list_conversations(limit: int = Query(100, ge=1, le=500), current_user = Depends(get_current_user)):
+    return history_service.list_sessions(limit=limit, user_id=current_user.id)
+
+
+@conversation_router.get("/export")
+async def export_conversations(current_user = Depends(get_current_user)):
+    return await export_history(current_user)
+
+
+@conversation_router.delete("/{session_id}", response_model=SuccessResponse)
+async def delete_conversation_alias(session_id: str, current_user = Depends(get_current_user)):
+    return await delete_conversation(session_id, current_user)

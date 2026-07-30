@@ -15,34 +15,36 @@ class OCREngine:
         self.models_loaded = False
         
     def load_model(self):
-        """Loads the easyOCR models into memory (offline)."""
-        logger.info("Loading OCR models... (stub)")
-        # In real implementation: 
-        # import easyocr
-        # self.reader = easyocr.Reader(['en'], gpu=False) # GPU False for low-end hardware
-        self.models_loaded = True
-        return True
+        """Load easyOCR locally; never return fabricated medical text."""
+        if self.models_loaded:
+            return self.reader is not None
+        try:
+            import easyocr
+            logger.info("Loading local easyOCR model...")
+            self.reader = easyocr.Reader(["en"], gpu=False, verbose=False)
+            self.models_loaded = True
+            return True
+        except Exception as exc:
+            logger.error("OCR model unavailable: %s", exc)
+            self.models_loaded = True
+            self.reader = None
+            return False
         
     def extract_text(self, image_bytes: bytes) -> str:
         """Extract text from raw image bytes."""
         if not self.models_loaded:
             self.load_model()
             
-        logger.debug("Running OCR on image bytes...")
-        
-        # Stub implementation
-        # Real implementation:
-        # try:
-        #     from PIL import Image
-        #     import numpy as np
-        #     img = Image.open(io.BytesIO(image_bytes))
-        #     img_np = np.array(img)
-        #     result = self.reader.readtext(img_np, detail=0)
-        #     return " ".join(result)
-        # except Exception as e:
-        #     logger.error(f"OCR Failed: {e}")
-        #     return ""
-        
-        return "[OCR Extraction: The patient's blood pressure is 120/80. Glucose levels are normal.]"
+        if self.reader is None:
+            return ""
+        try:
+            from PIL import Image
+            import numpy as np
+            image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+            result = self.reader.readtext(np.asarray(image), detail=0)
+            return " ".join(result).strip()
+        except Exception as exc:
+            logger.error("OCR extraction failed: %s", exc)
+            return ""
 
 ocr_engine = OCREngine()

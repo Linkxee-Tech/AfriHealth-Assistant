@@ -1,16 +1,16 @@
 # API Reference
 
-Base URL: `http://localhost:8000/api/v1`
-Interactive docs: `http://localhost:8000/docs`
+Base URL: `http://127.0.0.1:8000`
+Interactive docs: `http://127.0.0.1:8000/docs`
 
 ---
 
 ## System
 
-### GET `/system/health`
+### GET `/health`
 Basic health check. Returns 200 if server is running.
 
-### GET `/system/status`
+### GET `/status`
 Returns model load status, memory, CPU, and knowledge base info.
 
 ---
@@ -61,7 +61,7 @@ Save a health metric entry.
 ```
 
 ### GET `/metrics`
-Get entries. Query params: `metric_type`, `start_date`, `end_date`, `limit`.
+Get entries. Query params: `metric_type`, `patient_id`, `limit`.
 
 ### GET `/metrics/export`
 Download all entries as CSV.
@@ -96,3 +96,17 @@ Re-analyze an uploaded document by filename.
 
 ### GET `/documents`
 List all uploaded documents.
+
+Protected routes require the bearer token returned by `/auth/register` or
+`/auth/login`.
+
+### Password recovery
+
+- `POST /auth/forgot-password` — accepts a username or registered email. In local recovery mode it returns a one-time token; with SMTP configured it sends the token by email.
+- `POST /auth/reset-password` — accepts `{ "token": "...", "new_password": "..." }`; local recovery tokens are 6–8 characters, expire, and are single-use.
+- `POST /auth/admin-recover` — explicit local administrator recovery using `PASSWORD_RESET_ADMIN_TOKEN` for accounts without a recovery email.
+
+### Chat attachments and voice
+
+- `POST /documents/upload` — sends PDF, DOCX, TXT, JPG, or PNG attachments for extraction and indexing.
+- `POST /online/transcribe` — sends a captured voice question for transcription when the configured cloud provider is available. Typed chat and document upload remain available offline.

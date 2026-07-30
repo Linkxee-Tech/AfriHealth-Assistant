@@ -12,8 +12,10 @@ def init_session_state():
     db.init_db()  # idempotent - safe to call on every page load
     defaults = {
         "messages": [],
-        "model_loaded": True,
-        "memory_usage_gb": 4.2,
+        "model_loaded": False,
+        "memory_usage_gb": 0.0,
+        "processing_mode": "OFFLINE",
+        "gemini_configured": False,
         "language": "English",
         "theme": config.DEFAULT_THEME,
         "current_session_id": None,

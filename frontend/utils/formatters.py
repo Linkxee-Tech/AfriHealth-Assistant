@@ -16,12 +16,12 @@ def truncate(text: str, length: int = 60) -> str:
     return (text[:length] + "…") if len(text) > length else text
 
 
-def messages_to_report(messages, app_name="AfriHealth Assistant"):
+def messages_to_report(messages, app_name="AfriHealth Assistant", mode="Hybrid/Offline"):
     """Format a message list into a plain-text report for export."""
     lines = [
         f"{app_name} — Conversation Report",
         f"Generated: {now_datetime()}",
-        "Mode: 100% Offline",
+        f"Processing mode: {mode}",
         "=" * 50,
         "",
     ]

@@ -11,22 +11,39 @@ readme = "README.md"
 packages = [
     { include = "backend" },
     { include = "frontend" },
+    { include = "knowledge_base" },
 ]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
-fastapi = "^0.111.0"
-uvicorn = {extras = ["standard"], version = "^0.30.1"}
-streamlit = "^1.35.0"
-sqlalchemy = "^2.0.30"
-langchain = "^0.2.0"
-chromadb = "^0.5.0"
-llama-cpp-python = "^0.2.77"
-sentence-transformers = "^3.0.0"
+fastapi = ">=0.115,<1"
+uvicorn = {extras = ["standard"], version = ">=0.30,<1"}
+streamlit = ">=1.40,<2"
+starlette = ">=0.40,<0.47"
+sqlalchemy = ">=2.0,<3"
+langchain = ">=0.2,<1"
+langchain-community = ">=0.2,<1"
+chromadb = ">=0.5,<2"
+llama-cpp-python = ">=0.3,<1"
+sentence-transformers = ">=3,<6"
 passlib = {extras = ["bcrypt"], version = "^1.7.4"}
-pyjwt = "^2.8.0"
-pydantic = "^2.7.4"
-python-multipart = "^0.0.9"
+pydantic = ">=2.12,<3"
+pydantic-settings = ">=2.10,<3"
+pyjwt = ">=2.8,<3"
+python-multipart = ">=0.0.10"
+python-dotenv = ">=1,<2"
+pandas = ">=1.5,<3"
+requests = ">=2.27,<3"
+Pillow = ">=9.5,<13"
+psutil = ">=5.9,<8"
+aiofiles = ">=23,<25"
+reportlab = ">=4,<5"
+pypdf = ">=4,<7"
+python-docx = ">=1,<2"
+easyocr = ">=1.7,<2"
+duckduckgo-search = ">=6,<9"
+google-genai = ">=1,<2"
+prometheus-client = ">=0.20,<1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"

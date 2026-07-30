@@ -6,6 +6,7 @@ Blueprint: health_router
 import io
 import csv
 from typing import List, Optional, Dict, Any
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel, Field
 from fastapi.responses import StreamingResponse
@@ -36,9 +37,10 @@ class HealthMetricCreate(BaseModel):
     unit: Optional[str] = Field("", description="E.g., mmHg, mg/dL, kg")
     notes: Optional[str] = Field("", description="Any clinical notes")
     patient_id: Optional[int] = Field(None, description="Optional Patient ID")
+    recorded_at: Optional[datetime] = Field(None, description="Measurement date/time")
 
 
-@health_router.post("/metrics", summary="Save a new health metric", response_model=Dict[str, Any])
+@health_router.post("", summary="Save a new health metric", response_model=Dict[str, Any])
 async def add_metric(payload: HealthMetricCreate, current_user = Depends(get_current_user)):
     """Save a patient's health reading locally."""
     try:
@@ -48,7 +50,8 @@ async def add_metric(payload: HealthMetricCreate, current_user = Depends(get_cur
             unit=payload.unit,
             notes=payload.notes,
             user_id=current_user.id,
-            patient_id=payload.patient_id
+            patient_id=payload.patient_id,
+            recorded_at=payload.recorded_at,
         )
         # Run automatic vital check
         check = health_analyzer.check_vitals(payload.metric_type, payload.value)
@@ -59,7 +62,7 @@ async def add_metric(payload: HealthMetricCreate, current_user = Depends(get_cur
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@health_router.get("/metrics", summary="Get historical health metrics")
+@health_router.get("", summary="Get historical health metrics")
 async def get_metrics(
     metric_type: Optional[str] = Query(None, description="Filter by metric type"),
     patient_id: Optional[int] = Query(None, description="Filter by Patient ID"),
@@ -87,7 +90,11 @@ async def get_metrics(
 )
 async def export_metrics(metric_type: Optional[str] = Query(None), current_user = Depends(get_current_user)):
     """Download all health metric entries as a CSV file."""
-    entries = db_manager.get_health_metrics(metric_type=metric_type, limit=10000, user_id=current_user.id)
+    entries = db_manager.get_health_entries(
+        metric_type=metric_type,
+        limit=10000,
+        user_id=current_user.id,
+    )
     output = io.StringIO()
     writer = csv.DictWriter(
         output, fieldnames=["id", "metric_type", "value", "unit", "notes", "recorded_at"]
@@ -103,13 +110,22 @@ async def export_metrics(metric_type: Optional[str] = Query(None), current_user 
 
 
 @health_router.delete(
+    "",
+    response_model=SuccessResponse,
+    summary="Delete all health metric entries",
+)
+async def delete_all_metrics(current_user = Depends(get_current_user)):
+    deleted = db_manager.delete_all_health_metrics(user_id=current_user.id)
+    return SuccessResponse(success=True, message=f"Deleted {deleted} health metric(s)")
+
+
+@health_router.delete(
     "/{entry_id}",
     response_model=SuccessResponse,
     summary="Delete a health metric entry",
 )
 async def delete_metric(entry_id: int, current_user = Depends(get_current_user)):
-    # Note: A real app would check if the entry belongs to current_user before deleting.
-    deleted = db_manager.delete_health_metric(entry_id)
+    deleted = db_manager.delete_health_metric(entry_id, user_id=current_user.id)
     if not deleted:
         raise HTTPException(status_code=404, detail=f"Entry #{entry_id} not found.")
     return SuccessResponse(success=True, message=f"Deleted entry #{entry_id}")

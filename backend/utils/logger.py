@@ -17,3 +17,19 @@ def get_logger(name: str) -> logging.Logger:
         logger.addHandler(handler)
         logger.setLevel(logging.DEBUG if settings.DEBUG else logging.INFO)
     return logger
+
+
+def setup_logger(name: str = "afrihealth") -> logging.Logger:
+    return get_logger(name)
+
+
+def log_info(message: str, *args):
+    get_logger("afrihealth").info(message, *args)
+
+
+def log_error(message: str, *args):
+    get_logger("afrihealth").error(message, *args)
+
+
+def log_debug(message: str, *args):
+    get_logger("afrihealth").debug(message, *args)

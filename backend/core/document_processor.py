@@ -111,7 +111,11 @@ class DocumentProcessor:
             text = self.load_pdf(file_bytes)
         elif ext in (".docx", ".doc"):
             text = self.load_docx(file_bytes)
-        elif file_type in ("image/jpeg", "image/png", "image/bmp"):
+        elif ext == ".txt" or ext == ".md" or file_type == "text/plain":
+            text = self.load_text(file_bytes)
+        elif ext in (".jpg", ".jpeg", ".png", ".bmp") or file_type in (
+            "image/jpeg", "image/png", "image/bmp"
+        ):
             # Use OCR Engine for images
             text = ocr_engine.extract_text(file_bytes)
         else:

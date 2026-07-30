@@ -1,23 +1,69 @@
-import streamlit as st
-import config
-from utils import api_client
-from utils.session_state import init_session_state, get_theme_colors
-from components.custom_styles import inject_custom_css
-from components.sidebar import render_sidebar
-import psutil
 import platform
 
-st.set_page_config(page_title=f"Settings — {config.APP_NAME}", page_icon="⚙️", layout="wide")
+import psutil
+import streamlit as st
 
+import config
+from components.custom_styles import inject_custom_css
+from components.sidebar import render_sidebar
+from utils import api_client
+from utils.session_state import get_theme_colors, init_session_state
+
+
+@st.cache_data
+def get_cpu_info():
+    try:
+        return platform.processor() or "Unknown"
+    except Exception:
+        return "Unknown"
+
+
+st.set_page_config(page_title=f"Settings — {config.APP_NAME}", page_icon="⚙️", layout="wide")
 init_session_state()
 inject_custom_css(get_theme_colors())
 
 if not st.session_state.get("access_token"):
     st.info("Please login to access the application.")
-    st.page_link("pages/0_🔐_Login.py", label="Go to Login", icon="🔐")
+    st.page_link("app.py", label="Go to Login", icon="🔐")
     st.stop()
 
 render_sidebar()
+
+DEFAULTS = {
+    "model_temperature": "0.7",
+    "max_tokens": "512",
+    "top_p": "0.9",
+    "thread_count": "4",
+    "context_length": "2048",
+    "enable_web_search": "True",
+    "enable_cloud_fallback": "True",
+    "preferred_language": "English",
+    "online_doctor_service": "False",
+    "default_contact": "",
+    "sms_number": "",
+    "preferred_hospital": "Select...",
+    "auto_backup": "False",
+    "sync_frequency": "Weekly",
+}
+
+
+def _as_bool(value, fallback=False):
+    return str(value).strip().lower() in {"true", "1", "yes", "on"} if value is not None else fallback
+
+
+if "remote_settings" not in st.session_state:
+    loaded = api_client.get_settings()
+    st.session_state.remote_settings = {
+        **DEFAULTS,
+        **({} if loaded.get("error") else loaded),
+    }
+    if loaded.get("error"):
+        st.warning(f"Settings could not be loaded from the backend: {loaded['error']}")
+
+settings = st.session_state.remote_settings
+online_status = api_client.get_online_status()
+system_status = api_client.get_system_status()
+is_online = online_status.get("status") == "online"
 
 st.markdown(f"<div class='app-title'>⚙️ Settings & Online Features</div>", unsafe_allow_html=True)
 st.markdown("<hr>", unsafe_allow_html=True)
@@ -29,99 +75,94 @@ with t1:
     with col1:
         st.markdown("### 🤖 Local Model Settings")
         with st.container(border=True):
-            st.session_state.model_settings["temperature"] = st.slider(
-                "🌡️ Temperature", min_value=0.1, max_value=1.0, 
-                value=st.session_state.model_settings.get("temperature", 0.7), step=0.1
-            )
-            st.session_state.model_settings["max_tokens"] = st.slider(
-                "📏 Max Tokens", min_value=128, max_value=2048,
-                value=st.session_state.model_settings.get("max_tokens", 512), step=128
-            )
-            st.session_state.model_settings["top_p"] = st.slider(
-                "🎯 Top-P", min_value=0.1, max_value=1.0,
-                value=st.session_state.model_settings.get("top_p", 0.9), step=0.1
-            )
-            st.selectbox("🧵 Thread Count", ["1 Thread", "2 Threads", "4 Threads", "8 Threads"], index=2)
-            st.selectbox("📦 Context Length", ["1024", "2048", "4096"], index=1)
+            st.slider("🌡️ Temperature", 0.1, 1.0, float(settings["model_temperature"]), 0.1, key="settings_temperature")
+            st.slider("📏 Max Tokens", 128, 2048, int(settings["max_tokens"]), 128, key="settings_max_tokens")
+            st.slider("🎯 Top-P", 0.1, 1.0, float(settings["top_p"]), 0.1, key="settings_top_p")
+            st.selectbox("🧵 Thread Count", ["1", "2", "4", "8"], index=["1", "2", "4", "8"].index(str(settings["thread_count"])), key="settings_threads")
+            st.selectbox("📦 Context Length", ["1024", "2048", "4096"], index=["1024", "2048", "4096"].index(str(settings["context_length"])), key="settings_context")
 
     with col2:
         st.markdown("### 💰 Cost Management (Cloud AI)")
         with st.container(border=True):
-            st.markdown("**💳 API Usage:** 23 requests (today)")
-            st.markdown("**💲 Estimated Cost:** $0.012 (today)")
-            st.progress(0.12, text="Monthly Limit: $5.00 / $10.00")
-            st.toggle("🚨 Alert at 80% Budget", value=True)
+            usage = api_client.get_online_cost()
+            if usage.get("error"):
+                st.warning(f"Usage unavailable: {usage['error']}")
+            else:
+                st.metric("API tokens used", usage.get("tokens_used", 0))
+                st.metric("Estimated cost (USD)", f"${usage.get('estimated_cost_usd', 0.0):.6f}")
+                st.caption("This is an application-side estimate; provider billing is authoritative.")
+            st.toggle("🚨 Alert at 80% Budget", value=False, key="settings_budget_alert")
 
 with t2:
-    online_status = api_client.get_online_status() if hasattr(api_client, 'get_online_status') else {"status": "offline"}
-    is_online = online_status.get("status") == "online"
-
     if is_online:
-        st.markdown("""
-            <div class="status-card" style="border-left: 4px solid var(--medical-green);">
-                <h3 style="color: var(--medical-green); margin-top:0;">🌐 Hybrid Mode Active</h3>
-                <p style="margin-bottom:0;"><strong>Status:</strong> ● Connected (WiFi/Cellular)<br></p>
-            </div>
-        """, unsafe_allow_html=True)
+        st.success("🌐 Hybrid mode active — network connectivity detected.")
     else:
-        st.markdown("""
-            <div class="status-card" style="border-left: 4px solid var(--danger-red);">
-                <h3 style="color: var(--danger-red); margin-top:0;">🌍 Fully Offline Mode Active</h3>
-                <p style="margin-bottom:0;"><strong>Status:</strong> ○ Disconnected<br>
-                All data and queries are being handled strictly on this device.</p>
-            </div>
-        """, unsafe_allow_html=True)
+        st.warning("🌍 Offline mode active — local data and local model services are used.")
 
     col1, col2 = st.columns(2)
     with col1:
         st.markdown("### 🔍 Web Search & AI Enhancement")
         with st.container(border=True):
-            st.toggle("🔄 Enable Web Search", value=True)
-            st.toggle("🤖 Enable Cloud AI Fallback", value=True)
-            st.selectbox("🌐 Preferred Language", ["English", "French", "Swahili", "Hausa", "Yoruba", "Igbo"])
-            
-            st.markdown("**📊 Search Sources:**")
-            s1, s2 = st.columns(2)
-            s1.checkbox("WHO.org", value=True)
-            s1.checkbox("PubMed Central", value=True)
-            s1.checkbox("Drugs.com", value=True)
-            s2.checkbox("CDC.gov", value=True)
-            s2.checkbox("Africa CDC", value=True)
-            s2.checkbox("Medscape", value=True)
+            st.toggle("🔄 Enable Web Search", value=_as_bool(settings["enable_web_search"], True), key="settings_web_search")
+            st.toggle("🤖 Enable Cloud AI Fallback", value=_as_bool(settings["enable_cloud_fallback"], True), key="settings_cloud_fallback")
+            st.selectbox("🌐 Preferred Language", config.LANGUAGES, index=config.LANGUAGES.index(settings["preferred_language"]) if settings["preferred_language"] in config.LANGUAGES else 0, key="settings_language")
+            st.caption("Search sources are controlled by the configured hybrid provider.")
 
     with col2:
         st.markdown("### 📱 Telemedicine Settings")
         with st.container(border=True):
-            st.toggle("🏥 Online Doctor Service", value=False)
-            st.text_input("📧 Default Contact", value="support@afrihealth.com")
-            st.text_input("📱 SMS Number", value="+234 800 000 0000")
-            st.selectbox("🏥 Preferred Hospital", ["Select...", "Lagos University Teaching Hospital", "Kenyatta National Hospital", "Groote Schuur Hospital"])
+            st.toggle("🏥 Online Doctor Service", value=_as_bool(settings["online_doctor_service"]), key="settings_doctor")
+            st.text_input("📧 Default Contact", value=settings["default_contact"], key="settings_contact")
+            st.text_input("📱 SMS Number", value=settings["sms_number"], key="settings_sms")
+            hospitals = ["Select...", "Lagos University Teaching Hospital", "Kenyatta National Hospital", "Groote Schuur Hospital"]
+            st.selectbox("🏥 Preferred Hospital", hospitals, index=hospitals.index(settings["preferred_hospital"]) if settings["preferred_hospital"] in hospitals else 0, key="settings_hospital")
+            st.caption("No telemedicine provider is configured; enabling this option does not create a connection.")
 
 with t3:
     col1, col2 = st.columns(2)
     with col1:
         st.markdown("### 📊 Data Sync & Backup")
         with st.container(border=True):
-            st.toggle("☁️ Auto Backup to Cloud", value=True)
-            st.selectbox("🔄 Sync Frequency", ["Daily", "Weekly", "Real-time"])
-            st.markdown("**📦 Last Sync:** 2026-07-03 14:30 UTC")
-            
+            st.toggle("☁️ Auto Backup", value=_as_bool(settings["auto_backup"]), key="settings_auto_backup")
+            st.selectbox("🔄 Sync Frequency", ["Daily", "Weekly", "Real-time"], index=["Daily", "Weekly", "Real-time"].index(settings["sync_frequency"]) if settings["sync_frequency"] in ["Daily", "Weekly", "Real-time"] else 1, key="settings_sync_frequency")
+            st.caption("Cloud sync is unavailable until a provider is configured. Local backup is available below.")
             c1, c2 = st.columns(2)
-            if c1.button("🔄 Sync Now", use_container_width=True):
-                st.toast("Data synced successfully.")
-            if c2.button("📥 Download Backup", use_container_width=True):
-                st.toast("Backup downloaded.")
+            if c1.button("🔄 Sync Now", width="stretch"):
+                result = api_client.sync_data()
+                st.warning(result.get("message") or result.get("detail") or "Sync unavailable.")
+            if c2.button("📥 Prepare Backup", width="stretch"):
+                backup, name = api_client.download_backup()
+                if backup:
+                    st.session_state.backup_bytes = backup
+                    st.session_state.backup_name = name.split("filename=")[-1].strip('"')
+                    st.success("Local backup prepared.")
+                else:
+                    st.error(name)
+            if st.session_state.get("backup_bytes"):
+                st.download_button("Download Local Backup", st.session_state.backup_bytes, st.session_state.get("backup_name", "afrihealth-backup.json"), "application/json", width="stretch")
 
     with col2:
         st.markdown("### 💾 Data Management")
         with st.container(border=True):
+            confirm = st.checkbox("I understand these actions permanently delete my records.", key="settings_confirm_delete")
             d1, d2 = st.columns(2)
-            with d1:
-                st.button("🗑️ Clear Chat History", use_container_width=True)
-                st.button("📥 Export All Data", use_container_width=True)
-            with d2:
-                st.button("🗑️ Clear Health Metrics", use_container_width=True)
-                st.button("🔄 Reset All Settings", use_container_width=True)
+            if d1.button("🗑️ Clear Chat History", width="stretch", disabled=not confirm):
+                st.info(api_client.clear_chat_history().get("message", "Request completed."))
+            if d1.button("🗑️ Clear Health Metrics", width="stretch", disabled=not confirm):
+                st.info(api_client.clear_health_metrics().get("message", "Request completed."))
+            if d2.button("📥 Export All Data", width="stretch"):
+                backup, name = api_client.download_backup()
+                if backup:
+                    st.download_button("Download Export", backup, name.split("filename=")[-1].strip('"'), "application/json", width="stretch")
+                else:
+                    st.error(name)
+            if d2.button("🔄 Reset All Settings", width="stretch"):
+                result = api_client.reset_settings()
+                if "error" not in result:
+                    st.session_state.remote_settings = {**DEFAULTS, **result}
+                    st.success("Settings reset to defaults. Save to apply the visible values.")
+                else:
+                    st.error(result["error"])
 
 with t4:
     col1, col2 = st.columns(2)
@@ -129,31 +170,53 @@ with t4:
         st.markdown("### 🎨 Appearance")
         with st.container(border=True):
             themes = list(config.THEMES.keys())
-            selected_theme = st.radio("🌙 Theme", options=["Light", "Dark", "System"], index=1, horizontal=True)
-            if selected_theme in themes and selected_theme != st.session_state.theme:
+            selected_theme = st.radio("🌙 Theme", options=themes, index=themes.index(st.session_state.theme), horizontal=True, key="settings_theme")
+            if selected_theme != st.session_state.theme:
                 st.session_state.theme = selected_theme
                 st.rerun()
-                
-            st.selectbox("🌍 Language", config.LANGUAGES, index=config.LANGUAGES.index(st.session_state.language))
+            st.selectbox("🌍 Language", config.LANGUAGES, index=config.LANGUAGES.index(st.session_state.language), key="settings_ui_language")
             st.color_picker("🎨 Accent Color", value=config.THEMES[st.session_state.theme]["accent_green"])
-            
+
     with col2:
         st.markdown("### 🖥️ System Information")
         with st.container(border=True):
-            sys_mem = psutil.virtual_memory()
-            mem_used = round(sys_mem.used / (1024**3), 1)
-            mem_total = round(sys_mem.total / (1024**3), 1)
-            
-            st.markdown(f"""
-            - 💻 **OS:** {platform.system()} {platform.release()}
-            - 🧠 **CPU:** {platform.processor()}
-            - 💾 **RAM:** {mem_used} GB / {mem_total} GB
-            - 🎮 **GPU:** N/A (CPU Inference)
-            - 📦 **Model:** Llama-3-8B (Q4_K_M)
-            - ⚡ **Inference Speed:** ~18.5 tokens/sec
-            - 📊 **Profiler Score:** 0.85
-            - ♊ **Gemini 3 Pro API:** {'✅ Connected' if is_online else '❌ Disconnected'}
-            """)
+            memory = psutil.virtual_memory()
+            model_name = system_status.get("model_path") or "Not configured"
+            st.markdown(
+                f"- **OS:** {platform.system()} {platform.release()}\n"
+                f"- **CPU:** {get_cpu_info()}\n"
+                f"- **RAM:** {memory.used / (1024**3):.1f} GB / {memory.total / (1024**3):.1f} GB\n"
+                f"- **Model:** `{model_name}`\n"
+                f"- **Model loaded:** {'Yes' if system_status.get('model_loaded') else 'No'}\n"
+                f"- **Knowledge-base vectors:** {system_status.get('knowledge_base_docs', 0)}\n"
+                f"- **Gemini:** {'Configured' if system_status.get('gemini_configured') else 'Not configured'}"
+            )
+            if system_status.get("load_error"):
+                st.caption(f"Model status: {system_status['load_error']}")
+
 
 st.markdown("<br><hr>", unsafe_allow_html=True)
-st.button("💾 Save Settings", type="primary", use_container_width=True)
+if st.button("💾 Save Settings", type="primary", width="stretch"):
+    values = {
+        "model_temperature": st.session_state.settings_temperature,
+        "max_tokens": st.session_state.settings_max_tokens,
+        "top_p": st.session_state.settings_top_p,
+        "thread_count": st.session_state.settings_threads,
+        "context_length": st.session_state.settings_context,
+        "enable_web_search": st.session_state.settings_web_search,
+        "enable_cloud_fallback": st.session_state.settings_cloud_fallback,
+        "preferred_language": st.session_state.settings_language,
+        "online_doctor_service": st.session_state.settings_doctor,
+        "default_contact": st.session_state.settings_contact,
+        "sms_number": st.session_state.settings_sms,
+        "preferred_hospital": st.session_state.settings_hospital,
+        "auto_backup": st.session_state.settings_auto_backup,
+        "sync_frequency": st.session_state.settings_sync_frequency,
+        "theme": st.session_state.settings_theme,
+    }
+    result = api_client.update_settings(values)
+    if "error" in result:
+        st.error(result["error"])
+    else:
+        st.session_state.remote_settings = {**DEFAULTS, **result}
+        st.success("Settings saved.")

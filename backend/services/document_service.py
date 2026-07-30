@@ -25,7 +25,15 @@ class DocumentService:
 
         # Add chunks to RAG
         chunks_added = 0
-        if result["chunks"] and rag_engine._initialized:
+        if result["chunks"]:
+            if rag_engine._llm is None:
+                from backend.core.llm_engine import llm_engine
+                rag_engine.set_llm(llm_engine)
+            if rag_engine._embedder is None:
+                rag_engine.set_embedder(embedding_service)
+            if not rag_engine._initialized:
+                rag_engine.initialize()
+
             # Create metadata dict
             metadata = {"source": filename}
             if user_id is not None:
@@ -34,17 +42,45 @@ class DocumentService:
                 metadata["patient_id"] = patient_id
 
             docs_to_add = [
-                {"text": c["text"], "metadata": {**metadata, "chunk_id": c["chunk_id"]}}
+                {
+                    "text": c["text"],
+                    "source": metadata["source"],
+                    "chunk_id": c["chunk_id"],
+                    "metadata": metadata,
+                }
                 for c in result["chunks"]
             ]
             chunks_added = rag_engine.add_documents(docs_to_add)
 
-        # Generate a short AI analysis summary (stub for now)
-        analysis = (
-            f"Document '{filename}' processed successfully. "
-            f"{len(result['raw_text'])} characters extracted, "
-            f"{result['chunk_count']} chunks added to knowledge base."
-        )
+        # Use the configured local/cloud model when available. If neither is
+        # available, return an explicit extraction-only result rather than a
+        # fabricated clinical interpretation.
+        analysis = ""
+        try:
+            from backend.core.llm_engine import llm_engine
+            from backend.core.gemini_integration import gemini_client
+            excerpt = result["raw_text"][:6000]
+            prompt = (
+                "Summarise this medical document for a clinician. Do not diagnose, "
+                "do not invent findings, and state when information is missing.\n\n"
+                f"Document:\n{excerpt}"
+            )
+            if not llm_engine._loaded:
+                llm_engine.load_model()
+            if llm_engine._model is not None:
+                analysis = llm_engine.generate(prompt, max_tokens=400)
+            elif gemini_client.is_configured:
+                analysis = gemini_client.analyze_document(excerpt)
+        except Exception as exc:
+            logger.warning("Document AI analysis unavailable: %s", exc)
+
+        if not analysis:
+            analysis = (
+                f"Extraction completed for '{filename}'. No local or cloud AI model is available "
+                f"for interpretation. Review the extracted text with a qualified clinician. "
+                f"Characters: {len(result['raw_text'])}; chunks: {result['chunk_count']}; "
+                f"RAG chunks stored: {chunks_added}."
+            )
 
         # Persist to SQLite
         doc_id = db_manager.save_document(
@@ -53,6 +89,10 @@ class DocumentService:
             content=result["raw_text"][:5000],   # store first 5k chars
             analysis_result=analysis,
             user_id=user_id,
+            patient_id=patient_id,
+            char_count=len(result["raw_text"]),
+            chunk_count=result["chunk_count"],
+            chunks_added_to_rag=chunks_added,
         )
 
         return {

@@ -8,6 +8,7 @@ from backend.api.models.response_models import SystemStatusResponse
 from backend.core.llm_engine import llm_engine
 from backend.core.rag_engine import rag_engine
 from backend.config import settings
+from backend.core.gemini_integration import gemini_client
 
 system_router = APIRouter(tags=["System"])
 
@@ -39,4 +40,6 @@ async def system_status():
         memory_used_gb=status.get("memory_used_gb", 0.0),
         memory_total_gb=status.get("memory_total_gb", 0.0),
         memory_percent=status.get("memory_percent", 0.0),
+        load_error=status.get("load_error"),
+        gemini_configured=gemini_client.is_configured,
     )

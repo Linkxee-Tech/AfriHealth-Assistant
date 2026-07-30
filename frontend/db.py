@@ -117,11 +117,11 @@ def delete_session(session_id):
 # ---------------------------------------------------------------------------
 # Health metric logging  (notes field added per data model spec)
 # ---------------------------------------------------------------------------
-def add_health_entry(metric_type, value, unit, notes=None):
+def add_health_entry(metric_type, value, unit, notes=None, recorded_at=None):
     with get_conn() as conn:
         conn.execute(
             "INSERT INTO health_logs (metric_type, value, unit, notes, logged_at) VALUES (?, ?, ?, ?, ?)",
-            (metric_type, value, unit, notes, datetime.now().strftime("%Y-%m-%d %H:%M")),
+            (metric_type, value, unit, notes, (recorded_at or datetime.now()).strftime("%Y-%m-%d %H:%M")),
         )
 
 

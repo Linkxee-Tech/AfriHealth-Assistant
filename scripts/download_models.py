@@ -1,6 +1,6 @@
 """
 Download Models Script
-Downloads the quantised Llama-3-8B GGUF model and all-MiniLM-L6-v2 embeddings.
+Downloads the configured Llama-3.2-3B-Instruct GGUF model and all-MiniLM-L6-v2 embeddings.
 
 Usage:
     python scripts/download_models.py
@@ -15,16 +15,21 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from backend.config import settings
+from backend.config import settings, resolve_project_path
 from backend.utils.logger import get_logger
 
 logger = get_logger("download_models")
 
-LLM_MODEL_URL = (
-    "https://huggingface.co/QuantFactory/Meta-Llama-3-8B-GGUF/resolve/main/"
-    "Meta-Llama-3-8B.Q4_K_M.gguf"
-)
+LLM_MODEL_URL = "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf?download=true"
 EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
+
+
+def _is_valid_gguf(path: Path) -> bool:
+    try:
+        with path.open("rb") as handle:
+            return handle.read(4) == b"GGUF" and path.stat().st_size > 1024 * 1024
+    except OSError:
+        return False
 
 
 def _progress(block_num, block_size, total_size):
@@ -36,25 +41,33 @@ def _progress(block_num, block_size, total_size):
 
 
 def download_llm():
-    dest = Path(settings.MODEL_PATH)
+    dest = resolve_project_path(settings.MODEL_PATH)
     dest.parent.mkdir(parents=True, exist_ok=True)
 
+    if dest.exists() and _is_valid_gguf(dest):
+        logger.info("Valid GGUF model already exists at %s", dest)
+        return
     if dest.exists():
-        logger.info("LLM model already exists at %s", dest)
+        logger.error("Refusing to use invalid/non-GGUF model file at %s", dest)
         return
 
     logger.info("Downloading LLM model (~4.6 GB) …")
     logger.info("Source: %s", LLM_MODEL_URL)
     logger.info("Destination: %s", dest)
     try:
-        urllib.request.urlretrieve(LLM_MODEL_URL, str(dest), reporthook=_progress)
+        tmp_dest = dest.with_suffix(dest.suffix + ".download")
+        urllib.request.urlretrieve(LLM_MODEL_URL, str(tmp_dest), reporthook=_progress)
         print()
+        if not _is_valid_gguf(tmp_dest):
+            tmp_dest.unlink(missing_ok=True)
+            raise RuntimeError("Downloaded file is not a valid GGUF model")
+        tmp_dest.replace(dest)
         logger.info("LLM model downloaded successfully.")
     except Exception as exc:
         logger.error("Download failed: %s", exc)
         logger.error(
-            "Manual download:\n  1. Visit https://huggingface.co/QuantFactory/Meta-Llama-3-8B-GGUF\n"
-            "  2. Download Meta-Llama-3-8B.Q4_K_M.gguf\n"
+            "Manual download:\n  1. Visit https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF\n"
+            "  2. Download Llama-3.2-3B-Instruct-Q4_K_M.gguf\n"
             "  3. Place it at: %s", dest
         )
 

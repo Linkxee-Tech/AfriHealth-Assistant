@@ -97,6 +97,14 @@ def inject_custom_css(colors: dict):
         div[data-testid="stMetricLabel"] {{
             color: var(--grey) !important;
         }}
+        
+        /* Hide default Streamlit page navigation */
+        div[data-testid="sidebar-nav-container"] {{
+            display: none !important;
+        }}
+        section[data-testid="stSidebarNav"] {{
+            display: none !important;
+        }}
         """
         css_body += bg_css
         

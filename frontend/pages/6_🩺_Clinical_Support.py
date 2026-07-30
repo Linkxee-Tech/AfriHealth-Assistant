@@ -4,6 +4,7 @@ from utils import api_client
 from utils.session_state import init_session_state, get_theme_colors
 from components.custom_styles import inject_custom_css
 from components.sidebar import render_sidebar
+from components.clinical_support import render_reference_tools
 
 st.set_page_config(page_title=f"Clinical Support — {config.APP_NAME}", page_icon="🩺", layout="wide")
 
@@ -12,7 +13,7 @@ inject_custom_css(get_theme_colors())
 
 if not st.session_state.get("access_token"):
     st.info("Please login to access the application.")
-    st.page_link("pages/0_🔐_Login.py", label="Go to Login", icon="🔐")
+    st.page_link("app.py", label="Go to Login", icon="🔐")
     st.stop()
 
 render_sidebar()
@@ -26,7 +27,7 @@ t1, t2, t3, t4 = st.tabs(["🧘 Health Coach", "🚑 Clinical Triage", "💊 Med
 # 🧘 Health Coach
 # -----------------------------
 with t1:
-    st.markdown("<br>### Personalized Health Coach", unsafe_allow_html=True)
+    st.markdown("<br> Personalized Health Coach", unsafe_allow_html=True)
     st.markdown("<div style='color: #8892B0; margin-bottom: 20px;'>Generate tailored lifestyle and medical advice based on your current metrics.</div>", unsafe_allow_html=True)
     
     with st.container(border=True):
@@ -46,7 +47,7 @@ with t1:
                 metric2_type = st.selectbox("Metric 2", config.HEALTH_METRICS, index=1, key="coach_m2_t")
                 metric2_value = st.text_input("Value 2", placeholder="e.g. 72", key="coach_m2_v")
                 
-            coach_submitted = st.form_submit_button("✨ Generate Recommendations", type="primary", use_container_width=True)
+            coach_submitted = st.form_submit_button("✨ Generate Recommendations", type="primary", width="stretch")
 
     if coach_submitted:
         patient_context = {
@@ -77,7 +78,7 @@ with t1:
 # 🚑 Clinical Triage
 # -----------------------------
 with t2:
-    st.markdown("<br>### Clinical Triage & Risk Assessment", unsafe_allow_html=True)
+    st.markdown("<br> Clinical Triage & Risk Assessment", unsafe_allow_html=True)
     st.markdown("<div style='color: #8892B0; margin-bottom: 20px;'>Fast, offline symptom analysis for preliminary triage.</div>", unsafe_allow_html=True)
     
     with st.container(border=True):
@@ -90,7 +91,7 @@ with t2:
             with col2:
                 triage_activity = st.selectbox("Activity Level", ["Sedentary", "Light", "Moderate", "Active", "Very Active"], index=1, key="t_act")
                 triage_pregnant = st.checkbox("Pregnant", key="t_preg")
-            triage_submitted = st.form_submit_button("🚑 Analyze Symptoms", type="primary", use_container_width=True)
+            triage_submitted = st.form_submit_button("🚑 Analyze Symptoms", type="primary", width="stretch")
 
     if triage_submitted:
         symptoms = [s.strip() for s in symptoms_text.split(",") if s.strip()]
@@ -100,9 +101,11 @@ with t2:
 
     if st.session_state.get("triage_result"):
         res = st.session_state["triage_result"]
-        urg_color = "#E74C3C" if res.get('urgency', '').lower() in ["high", "emergency", "critical"] else "#F5A623" if res.get('urgency', '').lower() == "medium" else "#2EAA7D"
+        urgency = str(res.get('urgency', '')).lower()
+        triage_code = "RED" if urgency in ["high", "emergency", "critical"] else "ORANGE" if urgency == "medium" else "YELLOW" if urgency == "low" else "GREEN"
+        urg_color = "#E74C3C" if triage_code == "RED" else "#F5A623" if triage_code in ["ORANGE", "YELLOW"] else "#2EAA7D"
         
-        st.markdown(f"<div class='status-card' style='border-left: 4px solid {urg_color};'><h3 style='margin-top:0;'>Urgency: {res.get('urgency', 'Unknown')}</h3><p>{res.get('advice', '')}</p></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='status-card' style='border-left: 4px solid {urg_color};'><h3 style='margin-top:0;'>Triage: {triage_code} | Urgency: {res.get('urgency', 'Unknown')}</h3><p>{res.get('advice', '')}</p></div>", unsafe_allow_html=True)
         
         rc1, rc2 = st.columns(2)
         with rc1:
@@ -117,13 +120,13 @@ with t2:
 # 💊 Medication Checker
 # -----------------------------
 with t3:
-    st.markdown("<br>### Medication Interaction Checker", unsafe_allow_html=True)
+    st.markdown("<br> Medication Interaction Checker", unsafe_allow_html=True)
     st.markdown("<div style='color: #8892B0; margin-bottom: 20px;'>Check common drug combinations for potential interaction risks.</div>", unsafe_allow_html=True)
     
     with st.container(border=True):
         with st.form("medication_form"):
             meds = st.text_area("Medications List (comma-separated)", placeholder="e.g. Amoxicillin, Ibuprofen, Paracetamol")
-            med_submitted = st.form_submit_button("💊 Check Interactions", type="primary", use_container_width=True)
+            med_submitted = st.form_submit_button("💊 Check Interactions", type="primary", width="stretch")
 
     if med_submitted:
         medications = [m.strip() for m in meds.split(",") if m.strip()]
@@ -145,13 +148,13 @@ with t3:
 # 📚 Protocol Reference
 # -----------------------------
 with t4:
-    st.markdown("<br>### Treatment Protocol Reference", unsafe_allow_html=True)
+    st.markdown("<br> Treatment Protocol Reference", unsafe_allow_html=True)
     st.markdown("<div style='color: #8892B0; margin-bottom: 20px;'>Search offline clinical protocols and WHO guidelines.</div>", unsafe_allow_html=True)
     
     with st.container(border=True):
         with st.form("protocol_form"):
             condition = st.text_input("Medical Condition", placeholder="e.g. Malaria, Hypertension, Typhoid")
-            protocol_submitted = st.form_submit_button("📚 Search Protocol", type="primary", use_container_width=True)
+            protocol_submitted = st.form_submit_button("📚 Search Protocol", type="primary", width="stretch")
 
     if protocol_submitted:
         with st.spinner("Retrieving offline protocols..."):
@@ -168,3 +171,7 @@ with t4:
                 st.markdown("**📚 References:**")
                 for ref in res["references"]:
                     st.write(f"- {ref}")
+
+st.markdown("---")
+st.markdown("### Reference Library, Clinical Calculators & Vaccination Schedule")
+render_reference_tools(api_client)

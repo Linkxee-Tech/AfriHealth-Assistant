@@ -24,5 +24,15 @@ class RetrievalService:
     def knowledge_base_size(self) -> int:
         return rag_engine.get_collection_count()
 
+    def search(self, query: str, top_k: int = 3) -> List[Dict]:
+        return self.retrieve(query, top_k)
+
+    def get_context(self, query: str, top_k: int = 3) -> str:
+        return "\n\n".join(item.get("text", "") for item in self.retrieve(query, top_k))
+
+    @staticmethod
+    def rank_results(results: List[Dict]) -> List[Dict]:
+        return sorted(results or [], key=lambda item: item.get("distance", item.get("score", 999)))
+
 
 retrieval_service = RetrievalService()

@@ -1,5 +1,6 @@
-import streamlit as st
+import datetime
 import pandas as pd
+import streamlit as st
 import config
 from utils import api_client
 from utils.session_state import init_session_state, get_theme_colors
@@ -7,94 +8,87 @@ from components.custom_styles import inject_custom_css
 from components.sidebar import render_sidebar
 
 st.set_page_config(page_title=f"Health Metrics — {config.APP_NAME}", page_icon="📊", layout="wide")
-
 init_session_state()
 inject_custom_css(get_theme_colors())
 
 if not st.session_state.get("access_token"):
     st.info("Please login to access the application.")
-    st.page_link("pages/0_🔐_Login.py", label="Go to Login", icon="🔐")
+    st.page_link("app.py", label="Go to Login", icon="🔐")
     st.stop()
 
 render_sidebar()
-
 st.markdown(f"<div class='app-title'>📊 Health Metrics Dashboard</div>", unsafe_allow_html=True)
 st.markdown("<hr>", unsafe_allow_html=True)
 
-# Fetch metrics
-metrics_data = api_client.get_health_metrics()
+metrics_data = api_client.get_health_metrics(limit=500)
+latest_by_metric = {}
+for entry in metrics_data:
+    latest_by_metric.setdefault(entry.get("metric_type"), entry)
 
-# --- TOP: 4 Columns ---
-c1, c2, c3, c4 = st.columns(4)
+cards = ["Heart Rate", "Blood Pressure", "Blood Sugar", "Weight"]
+columns = st.columns(4)
+for column, metric_name in zip(columns, cards):
+    entry = latest_by_metric.get(metric_name)
+    with column:
+        if entry:
+            value = str(entry.get("value", ""))
+            check = api_client.check_vitals(metric_name, value)
+            status = check.get("status", "unknown").replace("_", " ").title()
+            st.metric(metric_name, f"{value} {entry.get('unit', '')}".strip(), status)
+        else:
+            st.metric(metric_name, "No reading", "Not recorded")
 
-with c1:
-    st.markdown("""<div class='status-card'>
-        <div><b>❤️ Heart Rate</b></div>
-        <div style='font-size: 1.5rem; font-weight: 700;'>72 bpm</div>
-        <div style='color: #2EAA7D; font-size: 0.9rem;'>✅ Normal</div>
-    </div>""", unsafe_allow_html=True)
-
-with c2:
-    st.markdown("""<div class='status-card'>
-        <div><b>💉 Blood Pressure</b></div>
-        <div style='font-size: 1.5rem; font-weight: 700;'>120/80 mmHg</div>
-        <div style='color: #2EAA7D; font-size: 0.9rem;'>✅ Normal</div>
-    </div>""", unsafe_allow_html=True)
-
-with c3:
-    st.markdown("""<div class='status-card'>
-        <div><b>🩸 Blood Sugar</b></div>
-        <div style='font-size: 1.5rem; font-weight: 700;'>5.6 mmol/L</div>
-        <div style='color: #2EAA7D; font-size: 0.9rem;'>✅ Normal</div>
-    </div>""", unsafe_allow_html=True)
-
-with c4:
-    st.markdown("""<div class='status-card'>
-        <div><b>⚖️ Weight</b></div>
-        <div style='font-size: 1.5rem; font-weight: 700;'>72 kg</div>
-        <div style='color: #2EAA7D; font-size: 0.9rem;'>✅ Normal</div>
-    </div>""", unsafe_allow_html=True)
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-# --- MIDDLE: Trend Chart ---
-st.markdown("### 📈 Blood Pressure Trend (Last 30 Days)")
-if not metrics_data:
-    st.info("No real health metrics recorded yet. Showing placeholder trend.")
-    
-# Dummy data for the chart to match mockup
-import numpy as np
-dates = pd.date_range(end=pd.Timestamp.today(), periods=30)
-bp_sys = np.random.normal(120, 5, 30)
-bp_dia = np.random.normal(80, 3, 30)
-df_trend = pd.DataFrame({"Systolic": bp_sys, "Diastolic": bp_dia}, index=dates)
-st.line_chart(df_trend, color=["#E74C3C", "#2EAA7D"])
+st.markdown("### 📈 Blood Pressure Trend")
+bp_rows = []
+for entry in metrics_data:
+    if entry.get("metric_type") != "Blood Pressure":
+        continue
+    try:
+        systolic, diastolic = (float(part.strip()) for part in str(entry["value"]).split("/", 1))
+        timestamp = entry.get("recorded_at") or entry.get("logged_at")
+        bp_rows.append({"date": pd.to_datetime(timestamp), "Systolic": systolic, "Diastolic": diastolic})
+    except (KeyError, TypeError, ValueError):
+        continue
+if bp_rows:
+    chart = pd.DataFrame(bp_rows).sort_values("date").set_index("date")
+    st.line_chart(chart[["Systolic", "Diastolic"]])
+else:
+    st.info("No blood-pressure readings recorded yet; the chart will populate from real entries.")
 
 st.markdown("---")
-
-# --- BOTTOM: Record New Metric ---
 st.markdown("### ➕ Record New Health Metric")
-
 with st.form("metric_form"):
-    f_col1, f_col2, f_col3, f_col4 = st.columns([2, 2, 2, 3])
-    with f_col1:
+    c1, c2, c3, c4 = st.columns([2, 2, 2, 3])
+    with c1:
         metric_type = st.selectbox("📋 Select Metric", config.HEALTH_METRICS)
-    with f_col2:
+    with c2:
         unit = config.HEALTH_METRIC_UNITS[metric_type]
-        value = st.number_input(f"📊 Value ({unit})", step=0.1)
-    with f_col3:
-        record_date = st.date_input("📅 Date")
-        record_time = st.time_input("🕐 Time")
-    with f_col4:
+        value = st.text_input(f"📊 Value ({unit})", placeholder="120/80" if metric_type == "Blood Pressure" else "72")
+    with c3:
+        record_date = st.date_input("📅 Date", value=datetime.date.today())
+        record_time = st.time_input("🕐 Time", value=datetime.datetime.now().time().replace(second=0, microsecond=0))
+    with c4:
         notes = st.text_input("📝 Notes")
-    
-    submit_col1, submit_col2, _ = st.columns([2, 2, 6])
-    with submit_col1:
-        submitted = st.form_submit_button("💾 Save Metric", use_container_width=True)
-    with submit_col2:
-        st.form_submit_button("🗑️ Cancel", use_container_width=True)
-        
-    if submitted:
-        api_client.add_health_metric(metric_type, str(value), unit, notes)
-        st.success(f"Saved {metric_type}: {value} {unit}")
-        st.rerun()
+    submitted = st.form_submit_button("💾 Save Metric", width="stretch", type="primary")
+
+if submitted:
+    if not value.strip():
+        st.error("Enter a metric value before saving.")
+    else:
+        recorded_at = datetime.datetime.combine(record_date, record_time)
+        result = api_client.add_health_metric(metric_type, value.strip(), unit, notes.strip(), recorded_at=recorded_at)
+        if isinstance(result, dict) and result.get("success", True) is False:
+            st.error(result.get("detail", "Metric could not be saved."))
+        else:
+            st.success(f"Saved {metric_type}: {value.strip()} {unit}")
+            st.rerun()
+
+if metrics_data:
+    st.markdown("### Recorded Data")
+    st.dataframe(pd.DataFrame(metrics_data), width="stretch", hide_index=True)
+    st.download_button(
+        "⬇️ Export Health Data (CSV)",
+        data=pd.DataFrame(metrics_data).to_csv(index=False),
+        file_name="afrihealth_health_data.csv",
+        mime="text/csv",
+    )

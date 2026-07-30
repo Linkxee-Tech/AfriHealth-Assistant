@@ -21,6 +21,10 @@ class HybridOrchestrator:
     """
     def __init__(self):
         self.rag_engine = rag_engine
+        self._cache: Dict[str, tuple[float, Dict[str, Any]]] = {}
+        self._request_times: List[float] = []
+        self.cache_ttl_seconds = 300
+        self.max_requests_per_minute = 30
 
     def is_online(self) -> bool:
         """Check if internet connection is available."""
@@ -70,6 +74,12 @@ class HybridOrchestrator:
         """Perform a quick online search using DuckDuckGo."""
         if not DDGS_AVAILABLE:
             return []
+        now = time.monotonic()
+        self._request_times = [stamp for stamp in self._request_times if now - stamp < 60]
+        if len(self._request_times) >= self.max_requests_per_minute:
+            logger.warning("Online search rate limit reached")
+            return []
+        self._request_times.append(now)
         
         try:
             with DDGS() as ddgs:
@@ -84,14 +94,37 @@ class HybridOrchestrator:
         Entry point to process a user query using the best available resources.
         Returns the combined context string and sources list.
         """
+        cache_key = f"{query.strip().lower()}::{top_k}"
+        cached = self._cache.get(cache_key)
+        if cached and time.monotonic() - cached[0] < self.cache_ttl_seconds:
+            return {**cached[1], "cached": True}
         mode = self.decide_processing_mode(query)
         
         if mode == "OFFLINE":
-            return self._prepare_offline(query, top_k)
+            result = self._prepare_offline(query, top_k)
+            self._cache[cache_key] = (time.monotonic(), result)
+            return result
             
         local_chunks = self.rag_engine.retrieve(query, top_k=top_k) if mode != "ONLINE" else []
         
-        return self._prepare_hybrid(query, top_k, local_chunks)
+        result = self._prepare_hybrid(query, top_k, local_chunks)
+        self._cache[cache_key] = (time.monotonic(), result)
+        return result
+
+    def decide_mode(self, query: str) -> str:
+        return self.decide_processing_mode(query)
+
+    def process_offline(self, query: str, top_k: int = 3) -> Dict[str, Any]:
+        return self._prepare_offline(query, top_k)
+
+    def process_hybrid(self, query: str, top_k: int = 3) -> Dict[str, Any]:
+        return self._prepare_hybrid(query, top_k, self.rag_engine.retrieve(query, top_k=top_k))
+
+    def combine_contexts(self, local_chunks: List[Dict[str, Any]], web_results: List[Dict[str, Any]]) -> Dict[str, Any]:
+        return {"context_str": "\n\n".join([*(c.get("text", "") for c in local_chunks), *(r.get("content", "") for r in web_results)]), "sources": [*(c.get("source", "") for c in local_chunks), *(r.get("source", "") for r in web_results)]}
+
+    def process_query(self, query: str, top_k: int = 3) -> Dict[str, Any]:
+        return self.prepare_context(query, top_k)
         
     def _prepare_offline(self, query: str, top_k: int, pre_fetched=None) -> Dict[str, Any]:
         """Prepare context solely from offline RAG."""

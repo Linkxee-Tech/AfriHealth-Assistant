@@ -12,11 +12,11 @@ from backend.utils.logger import get_logger
 logger = get_logger(__name__)
 
 try:
-    from langchain.text_splitter import RecursiveCharacterTextSplitter as _LCSplitter
+    from langchain_text_splitters import RecursiveCharacterTextSplitter as _LCSplitter
     _LANGCHAIN_OK = True
 except ImportError:
     _LANGCHAIN_OK = False
-    logger.warning("langchain not installed — using built-in text splitter.")
+    logger.warning("langchain not installed - using built-in text splitter.")
 
 
 class TextSplitter:

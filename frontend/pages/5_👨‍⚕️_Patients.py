@@ -4,6 +4,7 @@ A lightweight EMR and Clinical Decision Support System.
 """
 import streamlit as st
 import datetime
+import json
 import pandas as pd
 from utils.session_state import init_session_state, get_theme_colors
 from components.custom_styles import inject_custom_css
@@ -57,7 +58,7 @@ if st.session_state["patient_view"] == "directory":
     with col3:
         st.metric("Gender Split", f"{males}M / {females}F")
     with col4:
-        if st.button("➕ Register Patient", use_container_width=True, type="primary"):
+        if st.button("➕ Register Patient", width="stretch", type="primary"):
             navigate("register")
             
     st.markdown("---")
@@ -88,7 +89,7 @@ if st.session_state["patient_view"] == "directory":
         # Display as a full grid of cards
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # Pagination stub
+        # Paginate the real patient results returned by the backend.
         items_per_page = 8
         if "patient_page" not in st.session_state:
             st.session_state.patient_page = 1
@@ -112,10 +113,22 @@ if st.session_state["patient_view"] == "directory":
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-                if st.button("👤 View", key=f"view_{p['id']}", use_container_width=True):
+                if st.button("👤 View", key=f"view_{p['id']}", width="stretch"):
                     navigate("profile", p["id"])
                     
-        st.markdown("<div style='text-align: right;'>◀ 1 2 3 4 5 ▶</div>", unsafe_allow_html=True)
+        total_pages = max(1, (len(patients) + items_per_page - 1) // items_per_page)
+        st.session_state.patient_page = min(page, total_pages)
+        page_col1, page_col2, page_col3 = st.columns([1, 2, 1])
+        with page_col1:
+            if st.button("Previous", disabled=page <= 1, width="stretch"):
+                st.session_state.patient_page = page - 1
+                st.rerun()
+        with page_col2:
+            st.caption(f"Page {page} of {total_pages} · {len(patients)} patient(s)")
+        with page_col3:
+            if st.button("Next", disabled=page >= total_pages, width="stretch"):
+                st.session_state.patient_page = page + 1
+                st.rerun()
 
 # -----------------------------------------------------------------------------
 # View 2: Register Patient
@@ -195,7 +208,7 @@ elif st.session_state["patient_view"] == "profile":
     with c1:
         st.markdown(f"### {patient['first_name']} {patient['last_name']}")
     with c2:
-        if st.button("🔙 Back", use_container_width=True):
+        if st.button("🔙 Back", width="stretch"):
             navigate("directory")
             
     # Calculate age
@@ -224,13 +237,35 @@ elif st.session_state["patient_view"] == "profile":
     </div>
     """, unsafe_allow_html=True)
     
-    a1, a2, a3, _ = st.columns([2, 2, 2, 6])
+    a1, a2, a3, a4, _ = st.columns([2, 2, 2, 2, 4])
     with a1:
-        st.button("✏️ Edit Profile", use_container_width=True)
+        st.button("✏️ Edit Profile", width="stretch")
     with a2:
-        st.button("🗑️ Delete", use_container_width=True)
+        st.button("🗑️ Delete", width="stretch")
     with a3:
-        st.button("📥 Export", use_container_width=True)
+        export_data = api_client.export_patient(patient_id)
+        st.download_button(
+            "📥 Export JSON",
+            data=json.dumps(export_data, indent=2),
+            file_name=f"patient_{patient.get('mrn', patient_id)}.json",
+            mime="application/json",
+            width="stretch",
+        )
+    with a4:
+        pdf_bytes, pdf_filename = api_client.download_patient_pdf(patient_id)
+        if pdf_bytes:
+            # Extract clean filename if content-disposition header returned
+            if "filename=" in pdf_filename:
+                pdf_filename = pdf_filename.split("filename=")[1].strip('"')
+            st.download_button(
+                "📄 Export PDF",
+                data=pdf_bytes,
+                file_name=pdf_filename,
+                mime="application/pdf",
+                width="stretch",
+            )
+        else:
+            st.button("📄 Export PDF", disabled=True, width="stretch", help="PDF export unavailable")
 
     # Detailed Tabs
     t1, t2, t3, t4, t5 = st.tabs(["📋 Visit History", "🏥 Medical Details", "📊 Health Trends", "📁 Test Reports", "⚙️ Manage"])
@@ -274,10 +309,18 @@ elif st.session_state["patient_view"] == "profile":
                 meds_data.append({"Date": date_str, "Medication": v['medications']})
         
         if meds_data:
-            st.dataframe(pd.DataFrame(meds_data), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame(meds_data), width="stretch", hide_index=True)
         else:
             st.info("No medication history found.")
             
+        st.markdown("#### Active Medication Reminders")
+        active_meds = api_client.get_medications(patient_id=patient_id).get("medications", [])
+        if active_meds:
+            med_list = [{"Name": m["name"], "Dosage": m["dosage"], "Frequency": m["frequency"]} for m in active_meds]
+            st.dataframe(pd.DataFrame(med_list), width="stretch", hide_index=True)
+        else:
+            st.info("No active medication reminders for this patient.")
+
         st.markdown("---")
         mc1, mc2 = st.columns(2)
         with mc1:
@@ -402,23 +445,31 @@ elif st.session_state["patient_view"] == "profile":
                         "allergies": e_allergies,
                         "medical_history": e_history
                     }
-                    import requests
-                    try:
-                        # Direct backend call as API client doesn't wrap update yet
-                        resp = requests.put(
-                            f"{config.BACKEND_BASE_URL}/patients/{patient_id}", 
-                            json=payload, headers=api_client.get_auth_headers(), timeout=5
-                        )
+                    result = api_client.update_patient(patient_id, payload)
+                    if result.get("success"):
                         st.success("Patient updated!")
                         st.rerun()
-                    except Exception as e:
-                        db.db_manager.update_patient(patient_id, payload)
-                        st.success("Patient updated (offline mode)!")
-                        st.rerun()
+                    else:
+                        st.error(result.get("detail", "Patient update failed."))
 
         st.markdown("---")
         st.warning("Administrative actions")
-        st.button("Export Patient Record (PDF)", disabled=True, help="Export service connecting soon")
+        if st.button("Prepare Patient Record (PDF)", width="stretch"):
+            pdf_bytes, pdf_name = api_client.download_patient_pdf(patient_id)
+            if pdf_bytes:
+                st.session_state[f"patient_pdf_{patient_id}"] = pdf_bytes
+                st.session_state[f"patient_pdf_name_{patient_id}"] = pdf_name.split("filename=")[-1].strip('"')
+            else:
+                st.error(f"PDF export unavailable: {pdf_name}")
+        pdf_bytes = st.session_state.get(f"patient_pdf_{patient_id}")
+        if pdf_bytes:
+            st.download_button(
+                "Export Patient Record (PDF)",
+                data=pdf_bytes,
+                file_name=st.session_state.get(f"patient_pdf_name_{patient_id}", f"patient-{patient_id}.pdf"),
+                mime="application/pdf",
+                width="stretch",
+            )
         
         # PM31: Delete Patient logic
         if st.button("Delete Patient", type="primary"):
@@ -428,16 +479,15 @@ elif st.session_state["patient_view"] == "profile":
             st.error(f"Are you sure you want to completely delete {patient['first_name']} {patient['last_name']}? This cannot be undone.")
             d_c1, d_c2 = st.columns(2)
             with d_c1:
-                if st.button("Yes, Delete Patient", use_container_width=True):
-                    try:
-                        import requests
-                        requests.delete(f"{config.BACKEND_BASE_URL}/patients/{patient_id}", headers=api_client.get_auth_headers(), timeout=5)
-                    except:
-                        db.db_manager.delete_patient(patient_id)
-                    st.session_state["confirm_delete"] = False
-                    navigate("directory")
+                if st.button("Yes, Delete Patient", width="stretch"):
+                    result = api_client.delete_patient(patient_id)
+                    if result.get("success"):
+                        st.session_state["confirm_delete"] = False
+                        navigate("directory")
+                    else:
+                        st.error(result.get("detail", "Patient deletion failed."))
             with d_c2:
-                if st.button("Cancel Deletion", use_container_width=True):
+                if st.button("Cancel Deletion", width="stretch"):
                     st.session_state["confirm_delete"] = False
                     st.rerun()
 
@@ -506,20 +556,28 @@ elif st.session_state["patient_view"] == "visit":
         
         c5, c6 = st.columns(2)
         with c5:
-            submitted = st.form_submit_button("Save Visit Record", type="primary", use_container_width=True)
+            submitted = st.form_submit_button("Save Visit Record", type="primary", width="stretch")
         with c6:
-            st.form_submit_button("Print Prescription", disabled=True, use_container_width=True)
+            print_requested = st.form_submit_button("Print Prescription", width="stretch")
             
-        if submitted:
+        if submitted or print_requested:
             if not complaint:
                 st.error("Chief Complaint is required.")
             else:
+                examination = "; ".join(
+                    part for part in (
+                        f"BP: {v_bp}" if v_bp else "",
+                        f"HR: {v_hr}" if v_hr else "",
+                        f"Temp: {v_temp}" if v_temp else "",
+                        f"SpO2: {v_spo2}" if v_spo2 else "",
+                    ) if part
+                )
                 payload = {
                     "visit_date": visit_date.isoformat(),
                     "visit_type": vtype,
                     "chief_complaint": complaint,
                     "history": history,
-                    "examination": exam,
+                    "examination": examination,
                     "diagnosis": diagnosis,
                     "medications": ", ".join(selected_meds) + (" | " + custom_meds if custom_meds else ""),
                     "tests": tests,
@@ -533,7 +591,14 @@ elif st.session_state["patient_view"] == "visit":
                     
                 if res.get("success"):
                     st.success("Visit recorded successfully!")
-                    st.balloons()
-                    navigate("profile", patient_id)
+                    if print_requested:
+                        pdf_bytes, pdf_name = api_client.download_prescription_pdf(res.get("visit_id"))
+                        if pdf_bytes:
+                            st.download_button("Download Prescription PDF", pdf_bytes, pdf_name.split("filename=")[-1].strip('"'), "application/pdf", width="stretch")
+                        else:
+                            st.error(f"Prescription export unavailable: {pdf_name}")
+                    else:
+                        st.balloons()
+                        navigate("profile", patient_id)
                 else:
                     st.error(f"Failed to record visit: {res.get('detail')}")

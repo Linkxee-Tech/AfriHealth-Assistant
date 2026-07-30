@@ -14,7 +14,7 @@ inject_custom_css(get_theme_colors())
 
 if not st.session_state.get("access_token"):
     st.info("Please login to access the application.")
-    st.page_link("pages/0_🔐_Login.py", label="Go to Login", icon="🔐")
+    st.page_link("app.py", label="Go to Login", icon="🔐")
     st.stop()
 
 render_sidebar()
@@ -30,7 +30,7 @@ with col1:
 with col2:
     filter_date = st.date_input("📅 Date Range", value=None, label_visibility="collapsed")
 with col3:
-    st.button("🔍 Filter", use_container_width=True)
+    st.button("🔍 Filter", width="stretch")
 
 filtered_sessions = []
 for s in sessions:
@@ -56,7 +56,7 @@ st.markdown("<br>", unsafe_allow_html=True)
 if not filtered_sessions:
     st.info("No chat history found.")
 else:
-    # Pagination logic (stub)
+    # Pagination over the real backend/local history records.
     items_per_page = 5
     total_pages = max(1, (len(filtered_sessions) + items_per_page - 1) // items_per_page)
     
@@ -84,12 +84,12 @@ else:
         
         c1, c2, _ = st.columns([1, 1, 6])
         with c1:
-            if st.button("👁️ View", key=f"view_{sid}", use_container_width=True):
+            if st.button("👁️ View", key=f"view_{sid}", width="stretch"):
                 st.session_state.current_session_id = sid
                 st.session_state.messages = api_client.load_session(sid)
                 st.switch_page("pages/1_💬_Chat.py")
         with c2:
-            if st.button("🗑️ Delete", key=f"del_{sid}", use_container_width=True):
+            if st.button("🗑️ Delete", key=f"del_{sid}", width="stretch"):
                 api_client.delete_session(sid)
                 st.rerun()
                 
@@ -105,11 +105,17 @@ else:
             data=export_data,
             file_name="afrihealth_history.json",
             mime="application/json",
-            use_container_width=True
+            width="stretch"
         )
     with b2:
-        if st.button("🗑️ Clear All History", use_container_width=True):
-            st.warning("Action needs backend support.")
+        confirm_clear = st.checkbox("Confirm clear", key="confirm_clear_history")
+        if st.button("🗑️ Clear All History", width="stretch", disabled=not confirm_clear):
+            result = api_client.clear_chat_history()
+            if result.get("success"):
+                st.success(result.get("message", "Chat history cleared."))
+                st.rerun()
+            else:
+                st.error(result.get("message", result.get("detail", "Unable to clear history.")))
             
     st.markdown("<div style='text-align: center; margin-top: 20px;'>", unsafe_allow_html=True)
     cols = st.columns([4, 1, 1, 1, 1, 1, 4])

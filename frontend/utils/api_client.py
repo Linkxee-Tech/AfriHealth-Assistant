@@ -1,12 +1,10 @@
 """
 API client for AfriHealth Assistant frontend.
 
-This is the ONE seam where frontend talks to "the backend". Right now
-config.BACKEND_CONNECTED is False, so every function below falls back to
-local SQLite (db.py) and stub generators. Once the FastAPI backend exists
-(routes per the project spec: /chat, /chat/stream, /metrics, /documents/*,
-/chat/history), each function here gets a `requests` call instead of a
-local fallback - nothing in the pages/components layer needs to change.
+This is the ONE seam where the frontend talks to the backend. The connection
+URL and enabled/disabled state come from the project `.env`; when disabled,
+chat/history/metrics use the local SQLite fallback and backend-only features
+return safe unavailable responses.
 """
 
 import time
@@ -27,34 +25,61 @@ def login(username, password):
             resp = requests.post(
                 f"{config.BACKEND_BASE_URL}/auth/login",
                 data={"username": username, "password": password},
-                timeout=10,
+                timeout=2,
             )
             return resp.json()
         except requests.RequestException as e:
             return {"detail": f"Connection error: {e}"}
-    # Local fallback stub
-    return {"access_token": "stub_token", "token_type": "bearer"}
+    return {
+        "detail": (
+            "Backend disconnected; login requires the FastAPI authentication service."
+        )
+    }
 
-def register(username, password):
+def register(username, password, email=""):
     if config.BACKEND_CONNECTED:
         try:
             resp = requests.post(
                 f"{config.BACKEND_BASE_URL}/auth/register",
-                json={"username": username, "password": password},
+                json={"username": username, "password": password, "email": email or None},
                 timeout=10,
             )
             return resp.json()
         except requests.RequestException as e:
             return {"detail": f"Connection error: {e}"}
-    # Local fallback stub
-    return {"access_token": "stub_token", "token_type": "bearer"}
+    return {
+        "detail": (
+            "Backend disconnected; registration requires the FastAPI authentication service."
+        )
+    }
+
+
+def request_password_reset(username: str = "", email: str = ""):
+    if config.BACKEND_CONNECTED:
+        try:
+            payload = {key: value for key, value in {"username": username.strip(), "email": email.strip()}.items() if value}
+            resp = requests.post(f"{config.BACKEND_BASE_URL}/auth/forgot-password", json=payload, timeout=15)
+            return resp.json()
+        except requests.RequestException as exc:
+            return {"success": False, "detail": str(exc)}
+    return {"success": False, "detail": "Backend disconnected; password recovery is unavailable."}
+
+
+def reset_password(token: str, new_password: str):
+    if config.BACKEND_CONNECTED:
+        try:
+            resp = requests.post(f"{config.BACKEND_BASE_URL}/auth/reset-password", json={"token": token, "new_password": new_password}, timeout=15)
+            return resp.json()
+        except requests.RequestException as exc:
+            return {"success": False, "detail": str(exc)}
+    return {"success": False, "detail": "Backend disconnected; password recovery is unavailable."}
 
 
 # ---------------------------------------------------------------------------
 # Chat
 # ---------------------------------------------------------------------------
-def stream_chat(query: str, language: str, hybrid: bool = True):
-    """Yields response chunks. Maps to POST /chat/stream once backend is live."""
+def stream_chat(query: str, language: str, hybrid: bool = True, detail_level: str = "Standard"):
+    """Yields response chunks including __SOURCES__ header. Maps to POST /chat/stream."""
     if config.BACKEND_CONNECTED:
         try:
             with requests.post(
@@ -64,30 +89,33 @@ def stream_chat(query: str, language: str, hybrid: bool = True):
                 stream=True,
                 timeout=30,
             ) as resp:
+                buffer = ""
                 for chunk in resp.iter_content(chunk_size=None, decode_unicode=True):
-                    if chunk:
-                        yield chunk
+                    if not chunk:
+                        continue
+                    buffer += chunk
+                    while "\n" in buffer:
+                        line, buffer = buffer.split("\n", 1)
+                        # Pass __SOURCES__ through to the chat page so it can display them
+                        yield line + "\n"
+                if buffer:
+                    yield buffer
             return
         except requests.RequestException as e:
             yield f"(Backend unreachable: {e}) "
             return
 
-    # ---- Local stub fallback ----
-    lang_note = "" if language == "English" else f" [responding in {language} once backend supports it]"
+    # ---- Explicit disconnected-backend fallback ----
+    lang_note = "" if language == "English" else f" Requested language: {language}."
     full_text = (
-        f"(Demo response — backend not connected yet){lang_note}\n\n"
-        f"You asked: \"{query}\". Once the RAG + LLM backend is live, "
-        f"this will return an evidence-based answer with cited sources, "
-        f"streamed word by word from llama.cpp."
+        "No AI answer was generated because the FastAPI backend is not connected. "
+        "Start the backend and confirm BACKEND_CONNECTED=True before using clinical chat."
+        f"{lang_note}\n\nYour question was received: \"{query}\"."
     )
     words = full_text.split(" ")
     for i, word in enumerate(words):
         time.sleep(0.02)
         yield word + (" " if i < len(words) - 1 else "")
-
-
-def get_response_source_stub():
-    return "Demo mode — no knowledge base queried"
 
 
 # ---------------------------------------------------------------------------
@@ -108,16 +136,30 @@ def save_session(messages, session_id=None):
     return db.save_session(messages, session_id)
 
 
+def _normalise_session(session):
+    """Expose one history shape to pages regardless of the storage backend."""
+    return {
+        **session,
+        "session_id": session.get("session_id", session.get("id", "")),
+        "preview": session.get("preview", session.get("topic", "")),
+        "created_at": session.get("created_at", session.get("started_at", "")),
+    }
+
+
 def list_sessions(limit=20):
     if config.BACKEND_CONNECTED:
         try:
             resp = requests.get(
                 f"{config.BACKEND_BASE_URL}/chat/history", params={"limit": limit}, headers=get_auth_headers(), timeout=10
             )
-            return resp.json()
+            sessions = resp.json() if resp.status_code == 200 else []
+            # Keep the frontend contract compatible with the local SQLite
+            # fallback while the backend uses topic/started_at names.
+            if isinstance(sessions, list):
+                return [_normalise_session(session) for session in sessions if isinstance(session, dict)]
         except requests.RequestException:
             pass
-    return db.list_sessions(limit=limit)
+    return [_normalise_session(session) for session in db.list_sessions(limit=limit)]
 
 
 def load_session(session_id):
@@ -126,7 +168,8 @@ def load_session(session_id):
             resp = requests.get(
                 f"{config.BACKEND_BASE_URL}/chat/history/{session_id}", headers=get_auth_headers(), timeout=10
             )
-            return resp.json()
+            data = resp.json() if resp.status_code == 200 else []
+            return data if isinstance(data, list) else []
         except requests.RequestException:
             pass
     return db.load_session(session_id)
@@ -145,13 +188,14 @@ def delete_session(session_id):
 # ---------------------------------------------------------------------------
 # Health metrics  (maps to /metrics GET/POST, /metrics/export GET)
 # ---------------------------------------------------------------------------
-def add_health_metric(metric_type: str, value: str, unit: str = "", notes: str = "", patient_id: int = None):
+def add_health_metric(metric_type: str, value: str, unit: str = "", notes: str = "", patient_id: int = None, recorded_at=None):
     payload = {
         "metric_type": metric_type,
         "value": value,
         "unit": unit,
         "notes": notes,
-        "patient_id": patient_id
+        "patient_id": patient_id,
+        "recorded_at": recorded_at.isoformat() if recorded_at else None,
     }
     if config.BACKEND_CONNECTED:
         try:
@@ -159,14 +203,22 @@ def add_health_metric(metric_type: str, value: str, unit: str = "", notes: str =
             return resp.json()
         except requests.RequestException:
             pass
-    return db.db_manager.add_health_entry(
-        user_id=st.session_state.get("user_id", 1),
-        patient_id=patient_id,
-        metric_type=metric_type,
-        value=value,
-        unit=unit,
-        notes=notes
-    )
+    return db.add_health_entry(metric_type, value, unit, notes, recorded_at=recorded_at)
+
+
+def check_vitals(metric_type: str, value: str):
+    if config.BACKEND_CONNECTED:
+        try:
+            resp = requests.post(
+                f"{config.BACKEND_BASE_URL}/metrics/check-vitals",
+                json={"metric_type": metric_type, "value": value},
+                headers=get_auth_headers(),
+                timeout=10,
+            )
+            return resp.json()
+        except requests.RequestException:
+            pass
+    return {"status": "unknown", "urgency": "Low", "message": "Backend unavailable for vital analysis."}
 
 
 def get_health_metrics(metric_type: str = None, limit: int = 200, patient_id: int = None):
@@ -182,11 +234,20 @@ def get_health_metrics(metric_type: str = None, limit: int = 200, patient_id: in
             return []
         except requests.RequestException:
             pass
-    return db.db_manager.get_health_entries(
-        limit=limit,
-        user_id=st.session_state.get("user_id", 1),
-        patient_id=patient_id
-    )
+    return db.get_health_entries(metric_type=metric_type, limit=limit)
+
+
+def add_health_entry(metric_type: str, value: str, unit: str = "", notes: str = None, patient_id: int = None, recorded_at=None):
+    """Compatibility name used by the reusable metrics component."""
+    return add_health_metric(metric_type, value, unit, notes or "", patient_id, recorded_at)
+
+
+def get_health_entries(metric_type: str = None, limit: int = 200, patient_id: int = None):
+    """Return health entries using the component's legacy logged_at field too."""
+    entries = get_health_metrics(metric_type=metric_type, limit=limit, patient_id=patient_id)
+    for entry in entries:
+        entry.setdefault("logged_at", entry.get("recorded_at", ""))
+    return entries
 
 
 def delete_health_entry(entry_id):
@@ -203,8 +264,8 @@ def request_personalized_coach(metrics, patient_context=None):
     if config.BACKEND_CONNECTED:
         try:
             resp = requests.post(
-                f"{config.BACKEND_BASE_URL}/clinical/cds",
-                json={"symptoms": metrics, "patient_context": patient_context},
+                f"{config.BACKEND_BASE_URL}/metrics/coach",
+                json={"metrics": metrics, "patient_context": patient_context},
                 headers=get_auth_headers(),
                 timeout=20,
             )
@@ -295,17 +356,41 @@ def upload_document(file_obj, filename: str, patient_id: int = None):
 
 def analyze_document(filename: str):
     if config.BACKEND_CONNECTED:
+        for attempt in range(10):
+            try:
+                resp = requests.post(
+                    f"{config.BACKEND_BASE_URL}/documents/analyze",
+                    json={"filename": filename},
+                    headers=get_auth_headers(),
+                    timeout=20,
+                )
+                if resp.status_code == 404 and attempt < 9:
+                    time.sleep(0.5)
+                    continue
+                return resp.json()
+            except requests.RequestException as e:
+                return {"detail": f"Analyze error: {e}"}
+    return analyze_document_stub(filename)
+
+
+def transcribe_audio(audio_bytes: bytes, content_type: str = "audio/wav") -> dict:
+    """Transcribe audio using the backend /voice/transcribe (offline Whisper)."""
+    if config.BACKEND_CONNECTED:
         try:
+            import io
+            ext_map = {"audio/wav": "wav", "audio/webm": "webm", "audio/ogg": "ogg", "audio/mp3": "mp3", "audio/mpeg": "mp3"}
+            ext = ext_map.get(content_type, "wav")
+            files = {"audio": (f"recording.{ext}", io.BytesIO(audio_bytes), content_type)}
             resp = requests.post(
-                f"{config.BACKEND_BASE_URL}/documents/analyze",
-                json={"filename": filename},
+                f"{config.BACKEND_BASE_URL}/voice/transcribe",
+                files=files,
                 headers=get_auth_headers(),
-                timeout=20,
+                timeout=60,
             )
             return resp.json()
-        except requests.RequestException as e:
-            return {"detail": f"Analyze error: {e}"}
-    return analyze_document_stub(filename)
+        except requests.RequestException as exc:
+            return {"text": "", "detail": f"Voice request failed: {exc}"}
+    return {"text": "", "detail": "Backend disconnected; voice transcription is unavailable."}
 
 def get_documents(limit: int = 50, patient_id: int = None):
     if config.BACKEND_CONNECTED:
@@ -318,19 +403,16 @@ def get_documents(limit: int = 50, patient_id: int = None):
             return []
         except requests.RequestException:
             pass
-    return db.db_manager.get_documents(limit=limit, user_id=st.session_state.get("user_id", 1), patient_id=patient_id)
+    return []
 
 def analyze_document_stub(filename: str):
-    """Placeholder for OCR + RAG interpretation until backend is connected."""
-    time.sleep(0.8)
+    """Return an explicit unavailable result when the backend is disconnected."""
     return {
-        "status": "success",
-        "extracted_text_preview": "(Demo) OCR extraction will appear here once easyOCR is connected.",
-        "analysis": (
-            f"(Demo) AI interpretation of '{filename}' will appear here once the "
-            "RAG pipeline is connected to /documents/analyze."
+        "status": "unavailable",
+        "detail": (
+            "Document analysis is unavailable because the FastAPI backend is not connected. "
+            f"No OCR or clinical interpretation was generated for '{filename}'."
         ),
-        "source": "Demo mode",
     }
 
 
@@ -340,17 +422,26 @@ def analyze_document_stub(filename: str):
 def get_system_status():
     if config.BACKEND_CONNECTED:
         try:
-            resp = requests.get(f"{config.BACKEND_BASE_URL}/system/status", timeout=5)
-            return resp.json()
+            resp = requests.get(f"{config.BACKEND_BASE_URL}/status", timeout=2)
+            if resp.status_code == 200:
+                data = resp.json()
+                st.session_state["model_loaded"] = bool(data.get("model_loaded"))
+                st.session_state["memory_usage_gb"] = data.get("memory_usage_gb") or 0.0
+                st.session_state["gemini_configured"] = bool(data.get("gemini_configured"))
+                return data
+            return {"model_loaded": False, "memory_usage_gb": None, "online": False, "error": resp.text}
         except requests.RequestException:
             return {"model_loaded": False, "memory_usage_gb": None, "online": False}
-    return {"model_loaded": True, "memory_usage_gb": 4.2, "online": False}
+    return {"model_loaded": False, "memory_usage_gb": None, "online": False, "error": "Backend disconnected."}
 
 def get_online_status():
     if config.BACKEND_CONNECTED:
         try:
-            resp = requests.get(f"{config.BACKEND_BASE_URL}/online/status", timeout=5)
-            return resp.json()
+            resp = requests.get(f"{config.BACKEND_BASE_URL}/online/status", timeout=2)
+            if resp.status_code == 200:
+                data = resp.json()
+                st.session_state["processing_mode"] = "HYBRID" if data.get("hybrid_mode_active") else "OFFLINE"
+                return data
         except requests.RequestException:
             pass
     # Local fallback for hybrid mode
@@ -361,6 +452,16 @@ def get_online_status():
     except:
         return {"status": "offline", "hybrid_mode_active": False, "search_engine": None}
 
+
+def get_online_cost():
+    if config.BACKEND_CONNECTED:
+        try:
+            resp = requests.get(f"{config.BACKEND_BASE_URL}/online/cost", headers=get_auth_headers(), timeout=10)
+            return resp.json() if resp.status_code == 200 else {"error": resp.text}
+        except requests.RequestException as exc:
+            return {"error": str(exc)}
+    return {"error": "Backend disconnected."}
+
 def perform_online_search(query: str, limit: int = 5):
     if config.BACKEND_CONNECTED:
         try:
@@ -369,6 +470,114 @@ def perform_online_search(query: str, limit: int = 5):
         except requests.RequestException:
             pass
     return {"results": [], "error": "Backend disconnected."}
+
+
+def get_settings():
+    if config.BACKEND_CONNECTED:
+        try:
+            resp = requests.get(
+                f"{config.BACKEND_BASE_URL}/settings",
+                headers=get_auth_headers(),
+                timeout=2,
+            )
+            if resp.status_code == 200:
+                return resp.json()
+            return {"error": resp.text}
+        except requests.RequestException as exc:
+            return {"error": str(exc)}
+    return {"error": "Backend disconnected."}
+
+
+def update_settings(values: dict):
+    if config.BACKEND_CONNECTED:
+        try:
+            resp = requests.put(
+                f"{config.BACKEND_BASE_URL}/settings",
+                json=values,
+                headers=get_auth_headers(),
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                return resp.json()
+            return {"error": resp.text}
+        except requests.RequestException as exc:
+            return {"error": str(exc)}
+    return {"error": "Backend disconnected."}
+
+
+def sync_data():
+    if not config.BACKEND_CONNECTED:
+        return {"success": False, "message": "Backend disconnected."}
+    try:
+        resp = requests.post(
+            f"{config.BACKEND_BASE_URL}/online/sync",
+            headers=get_auth_headers(),
+            timeout=15,
+        )
+        data = resp.json()
+        if resp.status_code >= 400:
+            data.setdefault("success", False)
+        return data
+    except requests.RequestException as exc:
+        return {"success": False, "message": str(exc)}
+
+
+def download_backup():
+    if not config.BACKEND_CONNECTED:
+        return None, "Backend disconnected."
+    try:
+        resp = requests.get(
+            f"{config.BACKEND_BASE_URL}/online/backup",
+            headers=get_auth_headers(),
+            timeout=30,
+        )
+        if resp.status_code != 200:
+            return None, resp.text
+        return resp.content, resp.headers.get("Content-Disposition", "afrihealth-backup.json")
+    except requests.RequestException as exc:
+        return None, str(exc)
+
+
+def clear_chat_history():
+    if not config.BACKEND_CONNECTED:
+        return {"success": False, "message": "Backend disconnected."}
+    try:
+        resp = requests.delete(
+            f"{config.BACKEND_BASE_URL}/chat/history",
+            headers=get_auth_headers(),
+            timeout=15,
+        )
+        return resp.json()
+    except requests.RequestException as exc:
+        return {"success": False, "message": str(exc)}
+
+
+def clear_health_metrics():
+    if not config.BACKEND_CONNECTED:
+        return {"success": False, "message": "Backend disconnected."}
+    try:
+        resp = requests.delete(
+            f"{config.BACKEND_BASE_URL}/metrics",
+            headers=get_auth_headers(),
+            timeout=15,
+        )
+        return resp.json()
+    except requests.RequestException as exc:
+        return {"success": False, "message": str(exc)}
+
+
+def reset_settings():
+    if not config.BACKEND_CONNECTED:
+        return {"error": "Backend disconnected."}
+    try:
+        resp = requests.post(
+            f"{config.BACKEND_BASE_URL}/settings/reset",
+            headers=get_auth_headers(),
+            timeout=15,
+        )
+        return resp.json()
+    except requests.RequestException as exc:
+        return {"error": str(exc)}
 
 
 # ---------------------------------------------------------------------------
@@ -384,12 +593,13 @@ def get_patients(search: str = None):
                 headers=get_auth_headers(),
                 timeout=10
             )
-            return resp.json()
+            data = resp.json() if resp.status_code == 200 else []
+            return data if isinstance(data, list) else []
         except requests.RequestException as e:
             st.error(f"Failed to fetch patients: {e}")
             return []
-    # Local fallback
-    return db.db_manager.get_patients(search=search)
+    # Patient records require the backend database; fail safely when it is unavailable.
+    return []
 
 def create_patient(payload: dict):
     if config.BACKEND_CONNECTED:
@@ -403,12 +613,7 @@ def create_patient(payload: dict):
             return resp.json()
         except requests.RequestException as e:
             return {"success": False, "detail": str(e)}
-    # Local fallback
-    try:
-        patient_id = db.db_manager.create_patient(payload)
-        return {"success": True, "patient_id": patient_id}
-    except Exception as e:
-        return {"success": False, "detail": str(e)}
+    return {"success": False, "detail": "Patient service unavailable while backend is disconnected."}
 
 def get_patient(patient_id: int):
     if config.BACKEND_CONNECTED:
@@ -423,8 +628,38 @@ def get_patient(patient_id: int):
             return None
         except requests.RequestException:
             return None
-    # Local fallback
-    return db.db_manager.get_patient(patient_id)
+    return None
+
+def export_patient(patient_id: int):
+    """Return a serialisable patient record and visit history for download."""
+    if config.BACKEND_CONNECTED:
+        try:
+            resp = requests.get(
+                f"{config.BACKEND_BASE_URL}/patients/{patient_id}/export",
+                headers=get_auth_headers(),
+                timeout=15,
+            )
+            if resp.status_code == 200:
+                return resp.json()
+        except requests.RequestException:
+            pass
+    return {"patient": {}, "visits": []}
+
+
+def download_patient_pdf(patient_id: int):
+    if not config.BACKEND_CONNECTED:
+        return None, "Backend disconnected."
+    try:
+        resp = requests.get(
+            f"{config.BACKEND_BASE_URL}/patients/{patient_id}/export/pdf",
+            headers=get_auth_headers(),
+            timeout=30,
+        )
+        if resp.status_code != 200:
+            return None, resp.text
+        return resp.content, resp.headers.get("Content-Disposition", "patient-report.pdf")
+    except requests.RequestException as exc:
+        return None, str(exc)
 
 def get_patient_visits(patient_id: int):
     if config.BACKEND_CONNECTED:
@@ -437,8 +672,7 @@ def get_patient_visits(patient_id: int):
             return resp.json()
         except requests.RequestException:
             return []
-    # Local fallback
-    return db.db_manager.get_patient_visits(patient_id)
+    return []
 
 def create_visit(patient_id: int, payload: dict):
     if config.BACKEND_CONNECTED:
@@ -452,13 +686,246 @@ def create_visit(patient_id: int, payload: dict):
             return resp.json()
         except requests.RequestException as e:
             return {"success": False, "detail": str(e)}
-    # Local fallback
-    # Auto-generate some dummy AI suggestions if offline and no real model attached
-    if not payload.get("ai_suggestions"):
-        payload["ai_suggestions"] = "(Offline Fallback) AI suggests rest and hydration based on symptoms."
+    return {"success": False, "detail": "Visit service unavailable while backend is disconnected."}
+
+
+def update_patient(patient_id: int, payload: dict):
+    if config.BACKEND_CONNECTED:
+        try:
+            resp = requests.put(
+                f"{config.BACKEND_BASE_URL}/patients/{patient_id}",
+                json=payload,
+                headers=get_auth_headers(),
+                timeout=10,
+            )
+            return resp.json()
+        except requests.RequestException as e:
+            return {"success": False, "detail": str(e)}
+    return {"success": False, "detail": "Patient service unavailable while backend is disconnected."}
+
+
+def delete_patient(patient_id: int):
+    if config.BACKEND_CONNECTED:
+        try:
+            resp = requests.delete(
+                f"{config.BACKEND_BASE_URL}/patients/{patient_id}",
+                headers=get_auth_headers(),
+                timeout=10,
+            )
+            return resp.json()
+        except requests.RequestException as e:
+            return {"success": False, "detail": str(e)}
+    return {"success": False, "detail": "Patient service unavailable while backend is disconnected."}
+
+
+def download_prescription_pdf(visit_id: int):
+    if not config.BACKEND_CONNECTED:
+        return None, "Backend disconnected."
     try:
-        payload["patient_id"] = patient_id
-        visit_id = db.db_manager.create_visit(payload)
-        return {"success": True, "visit_id": visit_id}
-    except Exception as e:
-        return {"success": False, "detail": str(e)}
+        resp = requests.get(f"{config.BACKEND_BASE_URL}/visits/{visit_id}/prescription/pdf", headers=get_auth_headers(), timeout=30)
+        if resp.status_code != 200:
+            return None, resp.text
+        return resp.content, resp.headers.get("Content-Disposition", f"prescription-{visit_id}.pdf")
+    except requests.RequestException as exc:
+        return None, str(exc)
+
+
+def get_guidelines(category=None, query=None):
+    if not config.BACKEND_CONNECTED:
+        return []
+    try:
+        params = {key: value for key, value in {"category": category, "query": query}.items() if value}
+        resp = requests.get(f"{config.BACKEND_BASE_URL}/clinical/guidelines", params=params, headers=get_auth_headers(), timeout=15)
+        return resp.json() if resp.status_code == 200 else []
+    except requests.RequestException:
+        return []
+
+
+def download_guideline_pdf(guideline_id: int):
+    if not config.BACKEND_CONNECTED:
+        return None, "Backend disconnected."
+    try:
+        resp = requests.get(f"{config.BACKEND_BASE_URL}/clinical/guidelines/{guideline_id}/pdf", headers=get_auth_headers(), timeout=30)
+        if resp.status_code != 200:
+            return None, resp.text
+        return resp.content, resp.headers.get("Content-Disposition", f"guideline-{guideline_id}.pdf")
+    except requests.RequestException as exc:
+        return None, str(exc)
+
+
+def search_drugs(query=""):
+    if not config.BACKEND_CONNECTED:
+        return []
+    try:
+        resp = requests.get(f"{config.BACKEND_BASE_URL}/clinical/drugs", params={"query": query}, headers=get_auth_headers(), timeout=15)
+        return resp.json() if resp.status_code == 200 else []
+    except requests.RequestException:
+        return []
+
+
+def calculate_bmi(height_cm, weight_kg):
+    if not config.BACKEND_CONNECTED:
+        return {"error": "Backend disconnected."}
+    try:
+        resp = requests.post(f"{config.BACKEND_BASE_URL}/clinical/calculators/bmi", json={"height_cm": height_cm, "weight_kg": weight_kg}, headers=get_auth_headers(), timeout=10)
+        return resp.json()
+    except requests.RequestException as exc:
+        return {"error": str(exc)}
+
+
+def calculate_egfr(creatinine_mg_dl, age, sex):
+    if not config.BACKEND_CONNECTED:
+        return {"error": "Backend disconnected."}
+    try:
+        resp = requests.post(f"{config.BACKEND_BASE_URL}/clinical/calculators/egfr", json={"creatinine_mg_dl": creatinine_mg_dl, "age": age, "sex": sex}, headers=get_auth_headers(), timeout=10)
+        return resp.json()
+    except requests.RequestException as exc:
+        return {"error": str(exc)}
+
+
+def get_vaccination_schedule(age_years):
+    if not config.BACKEND_CONNECTED:
+        return {"schedule": [], "error": "Backend disconnected."}
+    try:
+        resp = requests.get(f"{config.BACKEND_BASE_URL}/clinical/vaccinations", params={"age_years": age_years}, headers=get_auth_headers(), timeout=10)
+        return resp.json()
+    except requests.RequestException as exc:
+        return {"schedule": [], "error": str(exc)}
+
+
+def get_response_source_stub():
+    """Return citations captured from the streaming response header."""
+    sources = st.session_state.get("response_sources", [])
+    return "; ".join(sources) if sources else "No source citation returned"
+
+def _base_url() -> str:
+    return config.BACKEND_BASE_URL
+
+def _auth_headers() -> dict:
+    return get_auth_headers()
+
+def _get(endpoint: str, params: dict = None) -> dict:
+    try:
+        resp = requests.get(
+            f"{_base_url()}{endpoint}",
+            params=params,
+            headers=_auth_headers(),
+            timeout=30,
+        )
+        if resp.status_code == 200:
+            return resp.json()
+        return {"detail": resp.text}
+    except Exception as exc:
+        return {"detail": str(exc)}
+
+def _post(endpoint: str, payload: dict) -> dict:
+    try:
+        resp = requests.post(
+            f"{_base_url()}{endpoint}",
+            json=payload,
+            headers=_auth_headers(),
+            timeout=30,
+        )
+        if resp.status_code == 200:
+            return resp.json()
+        return {"detail": resp.text}
+    except Exception as exc:
+        return {"detail": str(exc)}
+
+def _delete(endpoint: str) -> dict:
+    try:
+        resp = requests.delete(
+            f"{_base_url()}{endpoint}",
+            headers=_auth_headers(),
+            timeout=30,
+        )
+        if resp.status_code == 200:
+            return resp.json()
+        return {"detail": resp.text}
+    except Exception as exc:
+        return {"detail": str(exc)}
+
+def start_symptom_checker(language: str = "English") -> dict:
+    """Start a new symptom checker session."""
+    try:
+        resp = _post("/symptom-checker/start", {"language": language})
+        return resp
+    except Exception as exc:
+        return {"detail": str(exc)}
+
+
+def answer_symptom_checker(session_id: str, question_id: str, answer: str) -> dict:
+    """Submit an answer to the symptom checker."""
+    try:
+        resp = _post("/symptom-checker/answer", {
+            "session_id": session_id,
+            "question_id": question_id,
+            "answer": answer,
+        })
+        return resp
+    except Exception as exc:
+        return {"detail": str(exc)}
+
+
+def get_symptom_result(session_id: str) -> dict:
+    """Get the final triage assessment."""
+    try:
+        resp = _get(f"/symptom-checker/result/{session_id}")
+        return resp
+    except Exception as exc:
+        return {"detail": str(exc)}
+
+
+def get_outbreaks(region: str = None) -> dict:
+    """Get WHO outbreak alerts."""
+    try:
+        params = {}
+        if region:
+            params["region"] = region
+        resp = _get("/outbreaks", params=params)
+        return resp
+    except Exception as exc:
+        return {"alerts": [], "detail": str(exc)}
+
+
+def add_medication(name: str, dosage: str, frequency: str, times: list = None,
+                   start_date: str = None, end_date: str = None, notes: str = None,
+                   patient_id: int = None) -> dict:
+    """Add a medication reminder."""
+    try:
+        payload = {
+            "name": name, "dosage": dosage, "frequency": frequency,
+            "times": times or [], "start_date": start_date,
+            "end_date": end_date, "notes": notes, "patient_id": patient_id
+        }
+        return _post("/medications", payload)
+    except Exception as exc:
+        return {"detail": str(exc)}
+
+
+def get_medications(patient_id: int = None) -> dict:
+    """Get all medication reminders for current user, optionally filtered by patient."""
+    try:
+        params = {"patient_id": patient_id} if patient_id else {}
+        return _get("/medications", params=params)
+    except Exception as exc:
+        return {"medications": [], "detail": str(exc)}
+
+
+def delete_medication(med_id: int) -> dict:
+    """Delete a medication reminder."""
+    try:
+        return _delete(f"/medications/{med_id}")
+    except Exception as exc:
+        return {"detail": str(exc)}
+
+
+def get_me() -> dict:
+    """Get the current authenticated user's profile."""
+    if config.BACKEND_CONNECTED:
+        try:
+            return _get("/auth/me")
+        except Exception:
+            pass
+    return {"username": st.session_state.get("username", "user"), "email": "", "is_admin": False}
+

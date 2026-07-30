@@ -30,7 +30,7 @@ on standard laptop hardware (Intel i5 / Ryzen 5, 8GB RAM).
 │    chat_service  history_service  document_service               │
 │                                                                  │
 │  core/  (AI engines)                                             │
-│    llm_engine ──► llama.cpp ──► Meta-Llama-3-8B Q4 (.gguf)     │
+│    llm_engine ──► llama.cpp ──► Llama-3.2-3B-Instruct Q4 (.gguf)│
 │    rag_engine ──► ChromaDB  ──► vector_db/                      │
 │    embedding_service ──► all-MiniLM-L6-v2                       │
 │    document_processor ──► easyOCR / pypdf / python-docx         │
@@ -55,7 +55,7 @@ on standard laptop hardware (Intel i5 / Ryzen 5, 8GB RAM).
 | Decision | Choice | Reason |
 |---|---|---|
 | LLM runtime | llama.cpp | Optimised for CPU-only inference with 4-bit GGUF models |
-| Model | Llama-3-8B Q4_K_M | Best accuracy/RAM balance; ~4.5 GB loaded |
+| Model | Llama-3.2-3B-Instruct Q4_K_M | Local instruction model; supplied separately |
 | Vector DB | ChromaDB (local) | Embeddable, no extra services, pure Python |
 | Embeddings | all-MiniLM-L6-v2 | 384-dim, fast on CPU, excellent semantic quality |
 | RAG framework | LangChain | Industry-standard tooling for chunking and retrieval |
@@ -70,7 +70,7 @@ on standard laptop hardware (Intel i5 / Ryzen 5, 8GB RAM).
 ```
 User types query
       ↓
-Streamlit (api_client.py) → POST /api/v1/chat/stream
+Streamlit (api_client.py) → POST /chat/stream
       ↓
 chat_router → chat_service.stream_response()
       ↓

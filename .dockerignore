@@ -1,0 +1,12 @@
+.env
+.git
+.gitignore
+venv
+.venv
+frontend/.venv
+__pycache__
+*.pyc
+backend/data/afrihealth.db
+backend/data/vector_db
+frontend/afrihealth.db
+models

@@ -1,0 +1,37 @@
+{
+  "team_id": "afrihealth-assist",
+  "domain": "healthcare_medical",
+  "language_scope": ["en", "ha", "sw", "yo", "ig", "fr", "pcm"],
+  "african_alpha_claim": true,
+  "budget_laptop_claim": true,
+  "submitter": {
+    "name": "Linkxee Tech",
+    "email": "linkxee@gmail.com",
+    "github_handle": "Linkxee-Tech"
+  },
+  "cross_disciplinary_pairing": {
+    "discipline": "healthcare_medical",
+    "load_bearing": true,
+    "description": "An offline clinical AI assistant that guides Community Health Workers and patients in Africa using localized WHO protocols, supporting translation and voice in major African languages."
+  },
+  "test_prompts": [
+    {
+      "prompt_id": "tp_001",
+      "prompt": "Identify the standard WHO first-line treatment and safety precautions for uncomplicated malaria."
+    },
+    {
+      "prompt_id": "tp_002",
+      "prompt": "What are the early warning signs of severe dehydration in children, and how should oral rehydration therapy be administered?"
+    }
+  ],
+  "model": {
+    "name": "Phi-3-mini-4k-instruct-q4",
+    "runtime": "llama.cpp",
+    "quantization": "GGUF Q4_K_M",
+    "parameters_estimate": "3.8B",
+    "packaging": "binary_bundle"
+  },
+  "_runtime": {
+    "model_path": "model/Phi-3-mini-4k-instruct-q4.gguf"
+  }
+}

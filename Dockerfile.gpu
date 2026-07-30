@@ -1,0 +1,51 @@
+# Use a CUDA-enabled base image from NVIDIA
+FROM nvidia/cuda:12.1.1-devel-ubuntu22.04
+
+# Avoid interactive prompt hangs
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies, python, cmake, and git
+RUN apt-get update && apt-get install -y \
+    python3-pip \
+    python3-dev \
+    build-essential \
+    cmake \
+    git \
+    curl \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Ensure pip is up to date
+RUN python3 -m pip install --upgrade pip
+
+# Copy only requirements first to cache them
+COPY requirements.txt .
+
+# Install standard dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Force reinstall llama-cpp-python compiled with CUDA acceleration support
+ENV FORCE_CMAKE=1
+ENV CMAKE_ARGS="-DLLAMA_CUDA=on"
+RUN pip install --force-reinstall --no-cache-dir llama-cpp-python
+
+# Copy the rest of the application
+COPY . .
+
+# Create raw database and model paths
+RUN mkdir -p backend/data/raw_data \
+             backend/data/processed_data \
+             backend/data/vector_db/chroma_db \
+             backend/models/llm \
+             backend/models/embedding
+
+# Expose FastAPI and Streamlit ports
+EXPOSE 8000 8501
+
+# CMD to launch both backend and frontend services
+CMD ["bash", "-c", \
+     "python3 -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 & \
+      streamlit run frontend/app.py --server.port 8501 --server.address 0.0.0.0"]

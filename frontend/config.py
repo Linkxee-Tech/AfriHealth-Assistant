@@ -3,8 +3,27 @@ Frontend configuration for AfriHealth Assistant.
 Central place for theme colours, defaults, and constants used across pages.
 """
 
+import os
+from pathlib import Path
+
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+except ImportError:
+    # The frontend still runs in its local fallback mode if python-dotenv is
+    # not installed; environment variables provided by the shell remain usable.
+    pass
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
 APP_NAME = "AfriHealth Assistant"
-APP_VERSION = "0.2.0"
+APP_VERSION = "1.0.0"
 APP_TAGLINE = "Intelligent Healthcare, Offline. For Africa."
 
 # --- Colour palette (per project blueprint) ---
@@ -31,7 +50,7 @@ THEMES = {
 
 DEFAULT_THEME = "Dark"
 
-LANGUAGES = ["English", "Hausa", "Swahili"]
+LANGUAGES = ["English", "Hausa", "Swahili", "Yoruba", "Igbo", "French", "Pidgin"]
 
 QUICK_QUESTIONS = [
     "What should I do if I have a fever?",
@@ -68,6 +87,6 @@ DEFAULT_MODEL_SETTINGS = {
     "num_threads": 4,
 }
 
-# --- Backend connection (not yet live) ---
-BACKEND_BASE_URL = "http://localhost:8000"
-BACKEND_CONNECTED = True  # Connected to FastAPI backend
+# --- Backend connection ---
+BACKEND_BASE_URL = os.getenv("BACKEND_BASE_URL", "http://localhost:8000").rstrip("/")
+BACKEND_CONNECTED = _env_bool("BACKEND_CONNECTED", False)

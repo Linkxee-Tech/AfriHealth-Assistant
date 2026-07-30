@@ -38,7 +38,7 @@ def main():
         print("   Run:  python scripts/download_datasets.py")
         print("   Or place PDF/TXT files manually in the raw_data/ subdirectories.\n")
     else:
-        print(f"\n✅ Knowledge base built successfully!")
+        print(f"\n[SUCCESS] Knowledge base built successfully!")
         print(f"   Files processed : {result['files']}")
         print(f"   Chunks created  : {result['chunks']}")
         print(f"   Vectors stored  : {result['stored']}")

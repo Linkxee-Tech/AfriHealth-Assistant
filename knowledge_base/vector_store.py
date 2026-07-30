@@ -17,9 +17,10 @@ try:
     _CHROMA_OK = True
 except ImportError:
     _CHROMA_OK = False
-    logger.warning("chromadb not installed — vector store unavailable.")
+    logger.warning("chromadb not installed - vector store unavailable.")
 
 COLLECTION_NAME = "afrihealth_knowledge"
+CHROMA_BATCH_SIZE = 4000
 
 
 class VectorStore:
@@ -58,12 +59,14 @@ class VectorStore:
         documents  = [c["text"] for c in chunks]
         metadatas  = [{"source": c["source"], "chunk_id": str(c["chunk_id"])} for c in chunks]
 
-        self._collection.upsert(
-            ids=ids,
-            embeddings=embeddings,
-            documents=documents,
-            metadatas=metadatas,
-        )
+        for start in range(0, len(chunks), CHROMA_BATCH_SIZE):
+            end = start + CHROMA_BATCH_SIZE
+            self._collection.upsert(
+                ids=ids[start:end],
+                embeddings=embeddings[start:end],
+                documents=documents[start:end],
+                metadatas=metadatas[start:end],
+            )
         logger.info("Upserted %d chunks.", len(chunks))
         return len(chunks)
 

@@ -61,17 +61,32 @@ python scripts/build_knowledge_base.py
 ### 8. Run the backend
 
 ```bash
-uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
-# Visit http://localhost:8000/docs for the interactive API docs
+python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
+# Visit http://127.0.0.1:8000/docs for the interactive API docs
+
+`0.0.0.0` is only a server bind address and must not be entered in a browser.
+Use `127.0.0.1` or `localhost` for local URLs. Docker continues to bind the
+container to `0.0.0.0` internally and is accessed through the published port.
 ```
 
 ### 9. Run the frontend (separate terminal)
 
 ```bash
 cd frontend
-streamlit run app.py
+.\venv\Scripts\Activate.ps1
+python -m streamlit run app.py
 # Visit http://localhost:8501
 ```
+
+On Windows PowerShell, use the project environment explicitly:
+
+```powershell
+cd frontend
+..\venv\Scripts\python.exe -m streamlit run app.py
+```
+
+The explicit project interpreter prevents an incompatible global Streamlit /
+Starlette installation from being used.
 
 ---
 
@@ -87,12 +102,19 @@ Key variables:
 
 | Variable | Default | Description |
 |---|---|---|
-| MODEL_PATH | backend/models/llm/llama-3-8b-q4.gguf | Path to GGUF model file |
+| MODEL_PATH | backend/models/llm/Llama-3.2-3B-Instruct-Q4_K_M.gguf | Path to the requested GGUF model file |
 | EMBEDDING_MODEL | backend/models/embedding/all-MiniLM-L6-v2 | Embedding model path |
-| DB_PATH | backend/data/afrihealth.db | SQLite database path |
+| DB_PATH | backend/data/afrihealth.db | SQLite database path, resolved from the project root |
 | VECTOR_DB_PATH | backend/data/vector_db/chroma_db | ChromaDB storage path |
 | NUM_THREADS | 4 | CPU threads for inference |
-| BACKEND_CONNECTED | False | Set True in frontend/config.py when backend is running |
+| BACKEND_CONNECTED | False | Set True in the root `.env` when the backend is running |
+| ALLOWED_ORIGINS | localhost/127.0.0.1:8501 | Comma-separated exact browser origins |
+| ALLOWED_ORIGIN_REGEX | local HTTP origins | Local development pattern; clear it for strict production allowlisting |
+
+The checked-in embedding model is local and the knowledge-base builder stores
+vectors in `backend/data/vector_db/chroma_db/`. `MODEL_PATH` must point to a
+real llama.cpp-compatible GGUF file; a file with only a GGUF header is not
+sufficient.
 
 ---
 
@@ -105,3 +127,12 @@ pytest backend/tests/ -v
 # Frontend
 cd frontend && pytest tests/ -v
 ```
+## Password recovery
+
+The backend exposes `POST /auth/forgot-password` and `POST /auth/reset-password`.
+
+For an offline/local deployment, keep `AUTH_RECOVERY_MODE=local`: after submitting a registered username, the response contains an 8-character one-time recovery token. Use that token with `/auth/reset-password` and a new password. Tokens expire after `PASSWORD_RESET_TTL_MINUTES` and cannot be reused.
+
+For production, set `AUTH_RECOVERY_MODE=email`, register users with an email address, and configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, and `SMTP_USE_TLS`. In email mode, tokens are not returned in the API response.
+
+For an offline account that has no email, set a strong private `PASSWORD_RESET_ADMIN_TOKEN` and use `POST /auth/admin-recover`. Do not expose this token to regular users.

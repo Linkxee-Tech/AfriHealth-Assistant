@@ -103,6 +103,9 @@ class SystemStatusResponse(BaseModel):
     memory_used_gb: float
     memory_total_gb: float
     memory_percent: float
+    load_error: Optional[str] = None
+    gemini_configured: bool = False
+    model_config = {"protected_namespaces": ()}
 
 
 class SuccessResponse(BaseModel):
@@ -113,3 +116,32 @@ class SuccessResponse(BaseModel):
 class ErrorResponse(BaseModel):
     error: str
     detail: str = ""
+
+
+class MetricResponse(HealthMetricOut):
+    pass
+
+
+class SettingsResponse(BaseModel):
+    settings: Dict[str, Any] = {}
+
+
+class PatientResponse(BaseModel):
+    id: int
+    mrn: Optional[str] = None
+    first_name: str
+    last_name: str
+
+
+class VisitResponse(BaseModel):
+    id: int
+    patient_id: int
+    chief_complaint: str
+
+
+class ClinicalGuidelineResponse(BaseModel):
+    id: int
+    title: str
+    category: Optional[str] = None
+    content: str
+    source: Optional[str] = None

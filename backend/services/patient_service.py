@@ -1,6 +1,7 @@
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from backend.database.models import Patient, Visit
+from backend.utils.helpers import generate_mrn
 import logging
 
 logger = logging.getLogger(__name__)
@@ -8,6 +9,8 @@ logger = logging.getLogger(__name__)
 class PatientService:
     @staticmethod
     def register_patient(db: Session, patient_data: Dict[str, Any]) -> Patient:
+        patient_data = dict(patient_data)
+        patient_data.setdefault("mrn", generate_mrn(db.query(Patient).count() + 1))
         patient = Patient(**patient_data)
         db.add(patient)
         db.commit()

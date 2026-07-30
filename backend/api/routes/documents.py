@@ -53,6 +53,14 @@ async def upload_document(
 
     logger.info("Received file: %s (%s, %.2f MB)", file.filename, file.content_type, size_mb)
 
+    suffix = (file.filename or "").lower().rsplit(".", 1)[-1]
+    allowed_suffixes = {"pdf", "docx", "doc", "txt", "md", "jpg", "jpeg", "png", "bmp"}
+    if file.content_type not in ALLOWED_TYPES and suffix not in allowed_suffixes:
+        raise HTTPException(
+            status_code=415,
+            detail="Unsupported document type. Use PDF, DOCX, TXT, JPG, PNG, or BMP.",
+        )
+
     try:
         background_tasks.add_task(
             document_service.process_and_store,
@@ -78,17 +86,18 @@ async def analyze_document(payload: dict, current_user = Depends(get_current_use
     if not filename:
         raise HTTPException(status_code=422, detail="filename is required.")
     docs = db_manager.get_documents(limit=500, user_id=current_user.id)
-    doc  = next((d for d in docs if d["filename"] == filename), None)
+    doc_summary = next((d for d in docs if d["filename"] == filename), None)
+    doc = db_manager.get_document(doc_summary["id"], user_id=current_user.id) if doc_summary else None
     if not doc:
         raise HTTPException(status_code=404, detail=f"Document '{filename}' not found.")
     return DocumentAnalysisResponse(
         doc_id=doc["id"],
         filename=doc["filename"],
         file_type=doc.get("file_type", ""),
-        char_count=0,
-        chunk_count=0,
-        chunks_added_to_rag=0,
-        extracted_text_preview="",
+        char_count=doc["char_count"],
+        chunk_count=doc["chunk_count"],
+        chunks_added_to_rag=doc["chunks_added_to_rag"],
+        extracted_text_preview=doc["content"][:500],
         analysis=doc.get("analysis_result", ""),
     )
 

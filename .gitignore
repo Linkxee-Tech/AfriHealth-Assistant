@@ -23,6 +23,8 @@ frontend/afrihealth.db
 # Models (large binary files - downloaded separately, see scripts/download_models.py)
 backend/models/llm/*.gguf
 backend/models/embedding/*
+model/
+*.gguf
 
 # Vector store / processed data
 backend/data/vector_db/
@@ -42,3 +44,4 @@ Thumbs.db
 
 # Logs
 *.log
+**/.secret_key

@@ -7,24 +7,30 @@ logger = logging.getLogger(__name__)
 
 class SettingsService:
     @staticmethod
-    def get_settings(db: Session) -> Dict[str, str]:
-        settings_rows = db.query(Settings).all()
-        return {s.key: s.value for s in settings_rows}
+    def _key(user_id: int, key: str) -> str:
+        return f"user:{user_id}:{key}"
 
     @staticmethod
-    def update_settings(db: Session, settings_data: Dict[str, str]) -> Dict[str, str]:
+    def get_settings(db: Session, user_id: int) -> Dict[str, str]:
+        prefix = f"user:{user_id}:"
+        settings_rows = db.query(Settings).filter(Settings.key.like(f"{prefix}%")).all()
+        return {s.key[len(prefix):]: s.value for s in settings_rows}
+
+    @staticmethod
+    def update_settings(db: Session, user_id: int, settings_data: Dict[str, str]) -> Dict[str, str]:
         for key, value in settings_data.items():
-            setting = db.query(Settings).filter(Settings.key == key).first()
+            storage_key = SettingsService._key(user_id, key)
+            setting = db.query(Settings).filter(Settings.key == storage_key).first()
             if setting:
                 setting.value = str(value)
             else:
-                new_setting = Settings(key=key, value=str(value))
+                new_setting = Settings(key=storage_key, value=str(value))
                 db.add(new_setting)
         db.commit()
-        return SettingsService.get_settings(db)
+        return SettingsService.get_settings(db, user_id)
 
     @staticmethod
-    def reset_defaults(db: Session) -> Dict[str, str]:
+    def reset_defaults(db: Session, user_id: int) -> Dict[str, str]:
         defaults = {
             "model_temperature": "0.7",
             "max_tokens": "512",
@@ -34,6 +40,7 @@ class SettingsService:
             "enable_cloud_fallback": "True",
             "theme": "System"
         }
-        db.query(Settings).delete()
+        prefix = f"user:{user_id}:"
+        db.query(Settings).filter(Settings.key.like(f"{prefix}%")).delete(synchronize_session=False)
         db.commit()
-        return SettingsService.update_settings(db, defaults)
+        return SettingsService.update_settings(db, user_id, defaults)

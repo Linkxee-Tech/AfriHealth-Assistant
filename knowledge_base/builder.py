@@ -1,6 +1,6 @@
 """
-Knowledge Base Builder — orchestrates the full RAG knowledge base pipeline:
-  load raw docs → extract text → chunk → embed → store in ChromaDB
+Knowledge Base Builder - orchestrates the full RAG knowledge base pipeline:
+  load raw docs -> extract text -> chunk -> embed -> store in ChromaDB
 
 Run standalone:
   python -m knowledge_base.builder
@@ -42,12 +42,12 @@ class KnowledgeBaseBuilder:
 
     # ------------------------------------------------------------------
     def load_datasets(self) -> List[Dict]:
-        logger.info("Step 1/4 — Loading datasets from raw_data/ …")
+        logger.info("Step 1/4 - Loading datasets from raw_data/ ...")
         return self.loader.load_all()
 
     def chunk_documents(self, raw_files: List[Dict]) -> List[Dict]:
         """Step 2: Extract text and split into chunks."""
-        logger.info("Step 2/4 — Extracting text and chunking %d files …", len(raw_files))
+        logger.info("Step 2/4 - Extracting text and chunking %d files ...", len(raw_files))
         from backend.core.document_processor import document_processor
 
         all_chunks: List[Dict] = []
@@ -62,7 +62,7 @@ class KnowledgeBaseBuilder:
                 )
                 all_chunks.extend(chunks)
                 logger.info(
-                    "  %s → %d chunks", f["filename"], len(chunks)
+                    "  %s -> %d chunks", f["filename"], len(chunks)
                 )
             except Exception as exc:
                 logger.error("  Failed %s: %s", f["filename"], exc)
@@ -71,11 +71,11 @@ class KnowledgeBaseBuilder:
         return all_chunks
 
     def generate_embeddings(self, chunks: List[Dict]) -> List[Dict]:
-        logger.info("Step 3/4 — Generating embeddings for %d chunks …", len(chunks))
+        logger.info("Step 3/4 - Generating embeddings for %d chunks ...", len(chunks))
         return self.emb.embed_chunks(chunks)
 
     def store_vectors(self, chunks: List[Dict]) -> int:
-        logger.info("Step 4/4 — Storing vectors in ChromaDB …")
+        logger.info("Step 4/4 - Storing vectors in ChromaDB ...")
         self.store.connect()
         n = self.store.upsert(chunks)
         logger.info("Knowledge base complete. %d vectors stored.", n)

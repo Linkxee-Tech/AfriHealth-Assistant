@@ -1,6 +1,11 @@
-streamlit
-pandas
-requests
-pytest
-Pillow
-psutil
+# Keep the Streamlit runtime in a dedicated virtual environment.  Streamlit
+# 1.58 requires Starlette >= 0.40; pip will install that compatible transitive
+# dependency when this file is installed into a fresh environment.
+streamlit==1.58.0
+starlette>=0.40,<0.47
+pandas>=1.5,<3
+requests>=2.27,<3
+pytest>=8,<9
+Pillow>=9.5,<13
+psutil>=5.9,<8
+python-dotenv>=1.0,<2

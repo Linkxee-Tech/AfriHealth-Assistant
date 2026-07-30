@@ -36,7 +36,7 @@ WHO_DOCUMENTS = [
 def _progress(block_num, block_size, total_size):
     if total_size > 0:
         pct = min(block_num * block_size / total_size * 100, 100)
-        print(f"\r  Downloading … {pct:.1f}%", end="", flush=True)
+        print(f"\r  Downloading ... {pct:.1f}%", end="", flush=True)
 
 
 def download_datasets():
@@ -48,9 +48,24 @@ def download_datasets():
             logger.info("Already exists: %s", dest.name)
             skipped += 1
             continue
-        logger.info("Downloading %s …", doc["filename"])
+        logger.info("Downloading %s ...", doc["filename"])
         try:
-            urllib.request.urlretrieve(doc["url"], str(dest), reporthook=_progress)
+            req = urllib.request.Request(
+                doc["url"],
+                headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+            )
+            with urllib.request.urlopen(req) as response:
+                total_size = int(response.headers.get('Content-Length', 0))
+                block_size = 8192
+                block_num = 0
+                with open(dest, 'wb') as f:
+                    while True:
+                        buffer = response.read(block_size)
+                        if not buffer:
+                            break
+                        f.write(buffer)
+                        block_num += 1
+                        _progress(block_num, block_size, total_size)
             print()
             logger.info("Saved: %s", dest)
             downloaded += 1
@@ -63,6 +78,11 @@ def download_datasets():
         "Done. Downloaded: %d, Skipped: %d, Failed: %d",
         downloaded, skipped, failed,
     )
+    if failed:
+        raise RuntimeError(
+            f"{failed} dataset download(s) failed. No placeholder data was created; "
+            "retry or place verified source documents in backend/data/raw_data/."
+        )
     logger.info(
         "\nManual data sources:\n"
         "  WHO Guidelines: https://www.who.int/publications\n"

@@ -1,5 +1,5 @@
 """
-Data Loader — scans raw_data/ directories and loads medical documents
+Data Loader - scans raw_data/ directories and loads medical documents
 (PDFs, TXTs) ready for chunking and embedding.
 """
 

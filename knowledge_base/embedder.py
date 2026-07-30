@@ -1,5 +1,5 @@
 """
-Embedder — generates vector embeddings for document chunks.
+Embedder - generates vector embeddings for document chunks.
 Thin wrapper around EmbeddingService with batch processing and progress logging.
 """
 
@@ -25,7 +25,7 @@ class Embedder:
             self._service.load_model()
 
         total = len(chunks)
-        logger.info("Embedding %d chunks in batches of %d …", total, BATCH_SIZE)
+        logger.info("Embedding %d chunks in batches of %d ...", total, BATCH_SIZE)
 
         for batch_start in range(0, total, BATCH_SIZE):
             batch = chunks[batch_start: batch_start + BATCH_SIZE]

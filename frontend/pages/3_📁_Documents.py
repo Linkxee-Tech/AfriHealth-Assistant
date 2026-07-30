@@ -1,3 +1,4 @@
+import json
 import streamlit as st
 import config
 from utils import api_client
@@ -12,7 +13,7 @@ inject_custom_css(get_theme_colors())
 
 if not st.session_state.get("access_token"):
     st.info("Please login to access the application.")
-    st.page_link("pages/0_🔐_Login.py", label="Go to Login", icon="🔐")
+    st.page_link("app.py", label="Go to Login", icon="🔐")
     st.stop()
 
 render_sidebar()
@@ -27,7 +28,7 @@ uploaded_file = st.file_uploader(
     label_visibility="collapsed"
 )
 
-if uploaded_file and st.button("Process Document", use_container_width=True):
+if uploaded_file and st.button("Process Document", width="stretch"):
     with st.status(f"🔄 Processing... {uploaded_file.name}", expanded=True) as status:
         st.write("Extracting text and running OCR...")
         result = api_client.upload_document(uploaded_file.getvalue(), uploaded_file.name)
@@ -72,8 +73,14 @@ if doc_result:
     
     col1, col2, _ = st.columns([2, 2, 8])
     with col1:
-        st.button("📥 Download Analysis Report", use_container_width=True)
+        st.download_button(
+            "📥 Download Analysis Report",
+            data=json.dumps(doc_result, indent=2),
+            file_name=f"{doc_result.get('filename', 'document')}.analysis.json",
+            mime="application/json",
+            width="stretch",
+        )
     with col2:
-        if st.button("🗑️ Clear", use_container_width=True):
+        if st.button("🗑️ Clear", width="stretch"):
             st.session_state.pop("last_doc_result", None)
             st.rerun()

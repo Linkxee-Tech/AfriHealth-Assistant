@@ -22,12 +22,29 @@ class User(Base):
     id            = Column(Integer, primary_key=True, autoincrement=True)
     username      = Column(String(50), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
+    email         = Column(String(255), unique=True, nullable=True, index=True)
     created_at    = Column(DateTime, default=func.now())
     is_active     = Column(Boolean, default=True)
+    is_admin      = Column(Boolean, default=False)
 
     conversations  = relationship("Conversation", back_populates="user")
     health_metrics = relationship("HealthMetric", back_populates="user")
     documents      = relationship("Document", back_populates="user")
+    patients       = relationship("Patient", back_populates="owner")
+    password_resets = relationship("PasswordReset", back_populates="user", cascade="all, delete-orphan")
+
+
+class PasswordReset(Base):
+    __tablename__ = "password_resets"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    token_hash = Column(String(64), unique=True, nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=func.now())
+
+    user = relationship("User", back_populates="password_resets")
 
 
 class Conversation(Base):
@@ -53,6 +70,7 @@ class Message(Base):
     role            = Column(String(20), nullable=False)   # "user" | "assistant"
     content         = Column(Text, nullable=False)
     sources         = Column(Text)                          # JSON string
+    feedback        = Column(Integer, default=0)            # 1 for up, -1 for down
     timestamp       = Column(DateTime, default=func.now())
 
     conversation    = relationship("Conversation", back_populates="messages")
@@ -84,6 +102,9 @@ class Document(Base):
     file_type       = Column(String(50))
     content         = Column(Text)
     analysis_result = Column(Text)
+    char_count      = Column(Integer, default=0)
+    chunk_count     = Column(Integer, default=0)
+    chunks_added_to_rag = Column(Integer, default=0)
     uploaded_at     = Column(DateTime, default=func.now())
 
     user            = relationship("User", back_populates="documents")
@@ -98,6 +119,7 @@ class Patient(Base):
     __tablename__ = 'patients'
     
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     mrn = Column(String(20), unique=True, index=True) # Medical Record Number
     first_name = Column(String(50))
     last_name = Column(String(50))
@@ -117,6 +139,7 @@ class Patient(Base):
     prescriptions = relationship("Prescription", back_populates="patient", cascade="all, delete-orphan")
     health_metrics = relationship("HealthMetric", back_populates="patient", cascade="all, delete-orphan")
     documents = relationship("Document", back_populates="patient", cascade="all, delete-orphan")
+    owner = relationship("User", back_populates="patients")
 
 class Visit(Base):
     __tablename__ = 'visits'
