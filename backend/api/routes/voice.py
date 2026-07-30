@@ -13,12 +13,18 @@ logger = get_logger(__name__)
 voice_router = APIRouter(prefix="/voice", tags=["Voice"])
 
 
+_whisper_model = None
+
+
 def _transcribe_with_whisper(audio_bytes: bytes, content_type: str = "audio/wav") -> str:
     """Transcribe audio using faster-whisper (offline)."""
+    global _whisper_model
     try:
         from faster_whisper import WhisperModel
-        # Use tiny model for speed on CPU; downloads ~75MB on first use
-        model = WhisperModel("tiny", device="cpu", compute_type="int8")
+        if _whisper_model is None:
+            # Use tiny model for speed on CPU; downloads ~75MB on first use
+            _whisper_model = WhisperModel("tiny", device="cpu", compute_type="int8")
+        model = _whisper_model
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
             tmp.write(audio_bytes)
             tmp_path = tmp.name

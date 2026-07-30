@@ -46,7 +46,7 @@ def _fetch_who_feed() -> List[dict]:
 
 
 @outbreaks_router.get("", summary="Get latest WHO disease outbreak alerts")
-async def get_outbreaks(region: Optional[str] = Query(None, description="Filter by region keyword")):
+def get_outbreaks(region: Optional[str] = Query(None, description="Filter by region keyword")):
     """Returns disease outbreak news from WHO RSS feeds with 30-minute caching."""
     global _cache
     now = time.time()
