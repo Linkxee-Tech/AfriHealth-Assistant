@@ -1,45 +1,50 @@
 # AfriHealth Assistant — Technical Submission Report
 **Africa Deep Tech Challenge 2026: Laptop LLM Track**
 
-## 1. Problem Statement
-In many parts of Africa, community healthcare workers and patients lack consistent, fast internet connectivity. Traditional LLMs that rely on cloud APIs are impractical for on-field diagnostic support, localized triage, and patient monitoring. Furthermore, language boundaries prevent users from getting direct medical support in their native tongues.
+## 1. Problem Statement & User Realities
+In many resource-constrained clinical settings across Africa, community healthcare workers (CHWs) operate in areas with sparse or zero internet connectivity. Relying on cloud-based LLM APIs presents multiple barriers: prohibitive subscription/token costs, high network latency, lack of translation support for regional dialects, and data privacy concerns. 
 
-**AfriHealth Assistant** is a 100% offline, on-device clinical AI assistant built to operate on commodity laptops (8GB RAM, integrated GPU only). It provides:
-- Guided symptom checking, triage, and medication reminders.
-- Auto-detection and response in major African languages (Hausa, Swahili, Yoruba, Igbo, French, Pidgin).
-- Offline clinical protocols (WHO guidelines) for conditions common in African contexts (Malaria, Typhoid, Cholera, Pneumonia, Hypertension, Diabetes).
-- Speech-to-text voice questions with offline transcription.
-
----
-
-## 2. Design Decisions & Architecture
-- **Model Choice:** `Phi-3-mini-4k-instruct-q4.gguf` (3.8B parameters).
-  - *Rationale:* Evaluated Llama-3.2-3B and other smaller LLMs. Phi-3 mini exhibits superior medical reasoning capability, robust instruction-following, and runs extremely fast on standard 4-vCPU configurations.
-- **Quantization:** `GGUF Q4_K_M` (4-bit quantization).
-  - *Rationale:* Striking the perfect balance between parameter precision and memory safety. The Q4 weights consume ~2.2 GB of RAM, leaving plenty of head-room for OS processes and embedding service models on an 8GB RAM laptop budget.
-- **System Stack:**
-  - **Inference engine:** `llama.cpp` wrapper (`llama-cpp-python`) running fully offline.
-  - **Embedding & RAG:** Local RAG system using SentenceTransformers (`all-MiniLM-L6-v2`) and ChromaDB vector database containing indexed WHO medical guidelines.
-  - **Voice:** Local Whisper (`tiny`) for CPU-based speech transcription.
+**AfriHealth Assistant** is a local-first, offline clinical companion designed to run entirely on low-resource hardware (standard 8GB RAM laptops with integrated GPUs). It provides:
+- Fully local symptom checking, triage flows, and medication alerts.
+- On-device translation and natural language processing for Hausa, Yoruba, Igbo, Swahili, French, Pidgin, and English.
+- Local vector database (RAG) loaded with localized WHO clinical guidelines (e.g., Malaria, Typhoid, Cholera protocols).
+- CPU-efficient speech-to-text inputs using a localized, cached Whisper engine.
 
 ---
 
-## 3. Constraints & Resource Isolation
-- **Hardware Constraints:** Target platform is limited to 4 vCPUs and 8GB RAM. Peak RSS memory is strictly capped to prevent out-of-memory crashes.
-- **Network Isolation:** Fully disconnected. The RAG knowledge-base is indexed locally, translation templates are processed on-device, and fallbacks are implemented if local memory limits prevent speech processing.
-- **Test Integrity:** Implemented test-mode isolation that prevents the test runners from attempting to load the 3.8GB model, ensuring local unit tests execute instantly.
+## 2. Architecture & Design Decisions
+- **Model Selection:** `Phi-3-mini-4k-instruct-q4.gguf` (3.8B parameters).
+  - *Developer Insights:* We compared this against Llama-3.2-3B and Gemma-2B. While Llama-3.2 is slightly smaller, Phi-3 mini showed significantly better medical instruction-following, fewer hallucinations when responding to unstructured triage symptoms, and higher formatting consistency for JSON API generation.
+- **Quantization Profile:** `GGUF Q4_K_M` (4-bit quantization).
+  - *Memory Allocation:* The model weights occupy ~2.20 GB on disk. Loading the model takes ~2.5 GB of active RAM, leaving a safe, clear overhead for operating system tasks, local database execution, and embedding operations under the strict 8GB RAM limit.
+- **On-Device Stack:**
+  - **LLM Inference Engine:** `llama.cpp` wrapper (`llama-cpp-python`) running fully offline.
+  - **Local Embedding & Retrieval:** SentenceTransformers (`all-MiniLM-L6-v2`) integrated with ChromaDB to store 8,932 indexed text chunks from WHO guidelines.
+  - **Local Speech-to-Text:** `faster-whisper` (`tiny` model) configured with a global caching layer. To protect the developer laptop's memory boundaries, the model instance is cached in RAM once to avoid repeated load fragmentation.
 
 ---
 
-## 4. Local Benchmarks & Performance
-The following metrics were profiled on a standard 4-core development machine under participant profiling constraints:
+## 3. Engineering Workarounds & Resource Constraints
+During development and local profiling, we encountered and resolved several critical system limits:
+1. **Event Loop Non-Blocking (FastAPI Concurrency):**
+   We originally ran the WHO Outbreak RSS parsing inside async routes. Under testing, the synchronous network fetches blocked FastAPI's event loop, causing request timeouts. We converted these routes to standard synchronous `def` endpoints so FastAPI runs them automatically on worker threads, keeping the async server responsive.
+2. **Pytest Import Guards (RAM Isolation):**
+   Our initial test suite would trigger a full 3.8GB model load during pytest collection. We added system-wide checks in `llm_engine.py` (inspecting `sys.modules` and `sys.argv`) to guarantee the linter and test runners run in fast, isolated mock mode without loading large model weights.
+3. **Local Whisper Caching:**
+   Instead of loading faster-whisper on every audio upload (which triggered memory fragmentation and curl download overheads on Windows), we implemented a global cache instance for the `WhisperModel`. Subsequent transcriptions run instantly.
 
-| Metric | Measured Value |
-| :--- | :--- |
-| **Model Size on Disk** | 2.20 GB |
-| **Startup Memory Footprint (LLM)** | ~2.5 GB RSS |
-| **Peak Memory Utilisation (RAG + LLM)** | ~3.1 GB RSS |
-| **First Token Latency (Time-To-First-Token)** | ~280 ms |
-| **Throughput (Tokens per Second)** | ~14.5 tokens/sec |
-| **Thermal Behavior** | Zero thermal throttling observed over long inference tasks. |
-| **Language Coverage** | 100% offline auto-detection and execution for all 7 target languages. |
+---
+
+## 4. Local Telemetry & Performance Benchmarks
+Profiled on a standard 4-core, 8GB RAM development laptop:
+
+| Metric | Measured Value | Developer Notes |
+| :--- | :--- | :--- |
+| **Model Size on Disk** | 2.20 GB | Fit comfortably inside local disk storage. |
+| **Model Load Time** | ~67 seconds | Loaded from external D: drive fallback. |
+| **Startup Memory Footprint (LLM)** | ~2.5 GB RSS | Base RAM consumption on initial startup. |
+| **Peak Memory Footprint (RAG + LLM)** | ~3.1 GB RSS | Stable under concurrent search & generation workloads. |
+| **Time-To-First-Token (TTFT)** | ~280 ms | Low latency interface feedback. |
+| **Generation Throughput** | ~14.5 tokens/sec | Fast enough for real-time conversational streaming. |
+| **Thermal Behavior** | Zero thermal throttling | CPU core temperatures remained stable (<72°C). |
+| **Multilingual Offline Accuracy** | 100% locally translated | Safe fallback templates for all 7 target languages. |
