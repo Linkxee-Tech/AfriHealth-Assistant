@@ -27,9 +27,9 @@ TEST_QUERIES = [
 ]
 
 
-def test_model_load_time() -> dict:
+def test_model_load_time(engine=None) -> dict:
     from backend.core.llm_engine import LLMEngine
-    engine = LLMEngine()
+    engine = engine or LLMEngine()
     t0 = time.perf_counter()
     engine.load_model()
     elapsed = round((time.perf_counter() - t0) * 1000, 2)
@@ -95,11 +95,14 @@ def run_all_benchmarks() -> dict:
     logger.info("Target hardware: Intel i5 / Ryzen 5, 8GB RAM")
     logger.info("=" * 60)
 
+    from backend.core.llm_engine import LLMEngine
+
+    engine = LLMEngine()
     results = {
         "system":        test_memory_usage(),
-        "model_load":    test_model_load_time(),
+        "model_load":    test_model_load_time(engine),
         "rag_retrieval": test_rag_retrieval_latency(),
-        "inference":     test_inference_speed(),
+        "inference":     test_inference_speed(engine),
     }
 
     # Print summary

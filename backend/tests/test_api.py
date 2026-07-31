@@ -117,10 +117,10 @@ def test_export_metrics_csv(client, auth_headers):
     assert "metric_type" in resp.text
 
 
-def test_check_vitals_normal(client):
+def test_check_vitals_normal(client, auth_headers):
     resp = client.post(
         "/metrics/check-vitals",
-        json={"metric_type": "Heart Rate", "value": "72"},
+        json={"metric_type": "Heart Rate", "value": "72"}, headers=auth_headers,
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -128,20 +128,20 @@ def test_check_vitals_normal(client):
     assert data["urgency"] == "Low"
 
 
-def test_check_vitals_high(client):
+def test_check_vitals_high(client, auth_headers):
     resp = client.post(
         "/metrics/check-vitals",
-        json={"metric_type": "Heart Rate", "value": "160"},
+        json={"metric_type": "Heart Rate", "value": "160"}, headers=auth_headers,
     )
     assert resp.status_code == 200
     data = resp.json()
     assert data["urgency"] in ("High", "Emergency", "Medium")
 
 
-def test_analyze_symptoms(client):
+def test_analyze_symptoms(client, auth_headers):
     resp = client.post(
         "/metrics/analyze-symptoms",
-        json={"symptoms": ["fever", "headache", "cough"]},
+        json={"symptoms": ["fever", "headache", "cough"]}, headers=auth_headers,
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -149,10 +149,10 @@ def test_analyze_symptoms(client):
     assert "advice" in data
 
 
-def test_analyze_emergency_symptoms(client):
+def test_analyze_emergency_symptoms(client, auth_headers):
     resp = client.post(
         "/metrics/analyze-symptoms",
-        json={"symptoms": ["chest pain", "difficulty breathing"]},
+        json={"symptoms": ["chest pain", "difficulty breathing"]}, headers=auth_headers,
     )
     assert resp.status_code == 200
     assert resp.json()["urgency"] == "Emergency"
@@ -162,6 +162,22 @@ def test_list_documents(client, auth_headers):
     resp = client.get("/documents", headers=auth_headers)
     assert resp.status_code == 200
     assert isinstance(resp.json(), list)
+
+
+def test_document_upload_rejects_unknown_patient_before_processing(client, auth_headers):
+    response = client.post(
+        "/documents/upload",
+        data={"patient_id": "999999"},
+        files={"file": ("notes.txt", b"Medical notes", "text/plain")},
+        headers=auth_headers,
+    )
+    assert response.status_code == 404
+
+
+def test_collection_limits_are_bounded(client, auth_headers):
+    for endpoint in ("/patients?limit=0", "/metrics?limit=501", "/documents?limit=501"):
+        response = client.get(endpoint, headers=auth_headers)
+        assert response.status_code == 422
 
 
 def test_patient_search_visit_update_and_export(client, auth_headers):

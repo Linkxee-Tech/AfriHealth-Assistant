@@ -2,6 +2,8 @@
 
 import os
 import sys
+import gc
+import pytest
 
 from streamlit.testing.v1 import AppTest
 
@@ -10,6 +12,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
 # Explicitly force backend disconnected in testing to use fast, mock responses
 config.BACKEND_CONNECTED = False
+
+from utils import api_client
 
 APP_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app.py")
 
@@ -29,31 +33,46 @@ ALL_PAGES = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def run_gc():
+    """Active garbage collection fixture to prevent memory bloat and AppTest timeouts."""
+    yield
+    gc.collect()
+
+
 def open_authenticated_page(page_path):
     at = AppTest.from_file(APP_PATH)
-    at.run(timeout=20)
+    at.run(timeout=60)
     at.session_state["access_token"] = "stub_token"
     at.switch_page(page_path)
-    at.run(timeout=20)
+    at.run(timeout=60)
     return at
+
+
+def test_disconnected_online_status_is_offline_without_network_probe():
+    assert api_client.get_online_status() == {
+        "status": "offline",
+        "hybrid_mode_active": False,
+        "search_engine": None,
+    }
 
 
 def test_landing_page_boots():
     at = AppTest.from_file(APP_PATH)
-    at.run(timeout=20)
+    at.run(timeout=60)
     assert not at.exception
 
 
-def test_all_current_pages_boot_without_exception():
-    for page in ALL_PAGES:
-        at = open_authenticated_page(page)
-        assert not at.exception, f"{page} raised: {at.exception}"
+@pytest.mark.parametrize("page", ALL_PAGES)
+def test_page_boots_without_exception(page):
+    at = open_authenticated_page(page)
+    assert not at.exception, f"{page} raised: {at.exception}"
 
 
 def test_chat_input_produces_response():
     at = open_authenticated_page("pages/1_💬_Chat.py")
     assert len(at.chat_input) == 1
-    at.chat_input[0].set_value("What is malaria?").run(timeout=30)
+    at.chat_input[0].set_value("What is malaria?").run(timeout=60)
     assert len(at.session_state["messages"]) == 2
 
 

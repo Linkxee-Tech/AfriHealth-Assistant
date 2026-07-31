@@ -54,12 +54,15 @@ async def upload_document(
     logger.info("Received file: %s (%s, %.2f MB)", file.filename, file.content_type, size_mb)
 
     suffix = (file.filename or "").lower().rsplit(".", 1)[-1]
-    allowed_suffixes = {"pdf", "docx", "doc", "txt", "md", "jpg", "jpeg", "png", "bmp"}
+    allowed_suffixes = {"pdf", "docx", "txt", "md", "jpg", "jpeg", "png", "bmp"}
     if file.content_type not in ALLOWED_TYPES and suffix not in allowed_suffixes:
         raise HTTPException(
             status_code=415,
             detail="Unsupported document type. Use PDF, DOCX, TXT, JPG, PNG, or BMP.",
         )
+
+    if patient_id is not None and not db_manager.get_patient(patient_id, user_id=current_user.id):
+        raise HTTPException(status_code=404, detail="Patient not found")
 
     try:
         background_tasks.add_task(
@@ -108,7 +111,7 @@ async def analyze_document(payload: dict, current_user = Depends(get_current_use
 )
 async def get_documents(
     patient_id: Optional[int] = Query(None, description="Filter by Patient ID"),
-    limit: int = Query(50), 
+    limit: int = Query(50, ge=1, le=500),
     current_user = Depends(get_current_user)
 ):
     return db_manager.get_documents(user_id=current_user.id, patient_id=patient_id, limit=limit)

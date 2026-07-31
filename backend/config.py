@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
 
     # Model
-    MODEL_PATH: str = str(BASE_DIR / "models" / "llm" / "Llama-3.2-3B-Instruct-Q4_K_M.gguf")
+    MODEL_PATH: str = str(BASE_DIR / "models" / "llm" / "Phi-3-mini-4k-instruct-q4.gguf")
     EMBEDDING_MODEL: str = str(BASE_DIR / "models" / "embedding" / "all-MiniLM-L6-v2")
 
     # Database

@@ -36,6 +36,7 @@ async def chat(request: ChatRequest, current_user = Depends(get_current_user)):
             session_id=request.session_id,
             top_k=request.top_k,
             detail_level=request.detail_level,
+            user_id=current_user.id,
         )
         return ChatResponse(**result)
     except Exception as exc:
@@ -64,6 +65,7 @@ async def chat_stream(request: ChatRequest, current_user = Depends(get_current_u
                 session_id=request.session_id,
                 top_k=request.top_k,
                 detail_level=request.detail_level,
+                user_id=current_user.id,
             ):
                 yield token
         except Exception as exc:

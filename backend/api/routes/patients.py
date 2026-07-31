@@ -15,7 +15,11 @@ logger = get_logger(__name__)
 patients_router = APIRouter(prefix="/patients", tags=["Patient Management"])
 
 @patients_router.get("", summary="Get all patients list")
-async def list_patients(search: str = Query(None), limit: int = Query(100), current_user = Depends(get_current_user)):
+async def list_patients(
+    search: str = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    current_user=Depends(get_current_user),
+):
     return db_manager.get_patients(search=search, limit=limit, user_id=current_user.id)
 
 @patients_router.post("", summary="Register new patient")
@@ -28,7 +32,11 @@ async def register_patient(payload: dict, current_user = Depends(get_current_use
         raise HTTPException(status_code=400, detail=str(e))
 
 @patients_router.get("/search", summary="Search patients")
-async def search_patients(search: str = Query(None), limit: int = Query(100), current_user = Depends(get_current_user)):
+async def search_patients(
+    search: str = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    current_user=Depends(get_current_user),
+):
     return db_manager.get_patients(search=search, limit=limit, user_id=current_user.id)
 
 @patients_router.get("/{patient_id}", summary="Get patient details")
@@ -119,26 +127,6 @@ async def export_patient(patient_id: int, current_user = Depends(get_current_use
         raise HTTPException(status_code=404, detail="Patient not found")
     return record
 
-
-@patients_router.get("/{patient_id}/export/pdf", summary="Export patient record as PDF")
-async def export_patient_pdf(patient_id: int, current_user = Depends(get_current_user)):
-    import io
-    from fastapi.responses import StreamingResponse
-    from backend.services.export_service import export_service
-
-    record = db_manager.export_patient(patient_id, user_id=current_user.id)
-    if not record:
-        raise HTTPException(status_code=404, detail="Patient not found")
-    metrics = db_manager.get_health_entries(limit=1000, user_id=current_user.id, patient_id=patient_id)
-    patient = record["patient"]
-    summary = patient.get("medical_history") or patient.get("notes") or "No clinical summary recorded."
-    pdf = export_service.export_clinical_report_pdf(patient, metrics, summary)
-    filename = f"patient-{patient.get('mrn') or patient_id}-report.pdf"
-    return StreamingResponse(
-        pdf,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
 
 # Standalone Visit Routes
 visits_router = APIRouter(prefix="/visits", tags=["Visit Management"])

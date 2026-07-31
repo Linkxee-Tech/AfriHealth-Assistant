@@ -444,13 +444,7 @@ def get_online_status():
                 return data
         except requests.RequestException:
             pass
-    # Local fallback for hybrid mode
-    import requests as req
-    try:
-        req.get("https://duckduckgo.com", timeout=2)
-        return {"status": "online", "hybrid_mode_active": True, "search_engine": "DuckDuckGo"}
-    except:
-        return {"status": "offline", "hybrid_mode_active": False, "search_engine": None}
+    return {"status": "offline", "hybrid_mode_active": False, "search_engine": None}
 
 
 def get_online_cost():
@@ -928,4 +922,3 @@ def get_me() -> dict:
         except Exception:
             pass
     return {"username": st.session_state.get("username", "user"), "email": "", "is_admin": False}
-

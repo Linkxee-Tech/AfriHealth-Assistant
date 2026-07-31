@@ -149,9 +149,9 @@ class LLMEngine:
         if not self._loaded:
             self.load_model()
 
-        max_tokens  = max_tokens  or settings.DEFAULT_MAX_TOKENS
-        temperature = temperature or settings.DEFAULT_TEMPERATURE
-        top_p       = top_p       or settings.DEFAULT_TOP_P
+        max_tokens = max_tokens if max_tokens is not None else settings.DEFAULT_MAX_TOKENS
+        temperature = temperature if temperature is not None else settings.DEFAULT_TEMPERATURE
+        top_p = top_p if top_p is not None else settings.DEFAULT_TOP_P
 
         if self._model is None:
             return self._stub_response(prompt)
@@ -182,9 +182,9 @@ class LLMEngine:
         if not self._loaded:
             self.load_model()
 
-        max_tokens  = max_tokens  or settings.DEFAULT_MAX_TOKENS
-        temperature = temperature or settings.DEFAULT_TEMPERATURE
-        top_p       = top_p       or settings.DEFAULT_TOP_P
+        max_tokens = max_tokens if max_tokens is not None else settings.DEFAULT_MAX_TOKENS
+        temperature = temperature if temperature is not None else settings.DEFAULT_TEMPERATURE
+        top_p = top_p if top_p is not None else settings.DEFAULT_TOP_P
 
         if self._model is None:
             for chunk in self._stub_stream(prompt):

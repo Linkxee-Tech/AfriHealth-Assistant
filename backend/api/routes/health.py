@@ -66,7 +66,7 @@ async def add_metric(payload: HealthMetricCreate, current_user = Depends(get_cur
 async def get_metrics(
     metric_type: Optional[str] = Query(None, description="Filter by metric type"),
     patient_id: Optional[int] = Query(None, description="Filter by Patient ID"),
-    limit: int = Query(100, description="Number of recent entries to fetch"),
+    limit: int = Query(100, ge=1, le=500, description="Number of recent entries to fetch"),
     current_user = Depends(get_current_user)
 ):
     """Retrieve saved health metrics from local SQLite."""
@@ -136,7 +136,7 @@ async def delete_metric(entry_id: int, current_user = Depends(get_current_user))
     response_model=VitalCheckResponse,
     summary="Check a vital sign against normal ranges",
 )
-async def check_vitals(request: AnalyzeVitalsRequest):
+async def check_vitals(request: AnalyzeVitalsRequest, current_user=Depends(get_current_user)):
     result = health_analyzer.check_vitals(request.metric_type, request.value)
     # health_analyzer may return a 'value' key — remove it to avoid conflict
     result.pop("value", None)
@@ -152,7 +152,7 @@ async def check_vitals(request: AnalyzeVitalsRequest):
     response_model=SymptomAnalysisResponse,
     summary="Triage a list of symptoms",
 )
-async def analyze_symptoms(request: AnalyzeSymptomsRequest):
+async def analyze_symptoms(request: AnalyzeSymptomsRequest, current_user=Depends(get_current_user)):
     result = health_analyzer.analyze_symptoms(request.symptoms)
     return SymptomAnalysisResponse(**result)
 
@@ -162,7 +162,7 @@ async def analyze_symptoms(request: AnalyzeSymptomsRequest):
     response_model=ClinicalSupportResponse,
     summary="Advanced clinical triage for symptom lists",
 )
-async def clinical_triage(request: ClinicalTriageRequest):
+async def clinical_triage(request: ClinicalTriageRequest, current_user=Depends(get_current_user)):
     result = health_analyzer.triage_symptoms(request.symptoms, request.patient_context.dict() if request.patient_context else None)
     return ClinicalSupportResponse(
         urgency=result.get("urgency", "Low"),
@@ -179,7 +179,7 @@ async def clinical_triage(request: ClinicalTriageRequest):
     response_model=PersonalizedCoachResponse,
     summary="Generate personalized health coaching recommendations",
 )
-async def personalized_coach(request: PersonalizedCoachRequest):
+async def personalized_coach(request: PersonalizedCoachRequest, current_user=Depends(get_current_user)):
     result = health_analyzer.get_personalized_coach(request.metrics, request.patient_context.dict() if request.patient_context else None)
     return PersonalizedCoachResponse(**result)
 
@@ -189,7 +189,7 @@ async def personalized_coach(request: PersonalizedCoachRequest):
     response_model=MedicationInteractionResponse,
     summary="Check for potential medication interactions",
 )
-async def medication_interactions(request: MedicationInteractionRequest):
+async def medication_interactions(request: MedicationInteractionRequest, current_user=Depends(get_current_user)):
     result = health_analyzer.check_medication_interactions(request.medications)
     return MedicationInteractionResponse(**result)
 
@@ -199,6 +199,6 @@ async def medication_interactions(request: MedicationInteractionRequest):
     response_model=TreatmentProtocolResponse,
     summary="Get a basic offline treatment protocol for a condition",
 )
-async def treatment_protocol(request: TreatmentProtocolRequest):
+async def treatment_protocol(request: TreatmentProtocolRequest, current_user=Depends(get_current_user)):
     result = health_analyzer.get_treatment_protocol(request.condition)
     return TreatmentProtocolResponse(**result)

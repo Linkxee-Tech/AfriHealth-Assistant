@@ -10,13 +10,13 @@ from backend.core.hybrid_orchestrator import hybrid_orchestrator
 from backend.database.db_manager import get_db
 from backend.database.models import Conversation, Document, HealthMetric, Message, Patient, Settings
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 online_router = APIRouter(prefix="/online", tags=["Online Features"])
 
 class SearchRequest(BaseModel):
     query: str
-    limit: int = 5
+    limit: int = Field(5, ge=1, le=10)
 
 @online_router.get("/status")
 async def get_online_status():

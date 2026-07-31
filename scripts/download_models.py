@@ -1,6 +1,6 @@
 """
 Download Models Script
-Downloads the configured Llama-3.2-3B-Instruct GGUF model and all-MiniLM-L6-v2 embeddings.
+Downloads the configured Phi-3 Mini GGUF model and all-MiniLM-L6-v2 embeddings.
 
 Usage:
     python scripts/download_models.py
@@ -20,7 +20,7 @@ from backend.utils.logger import get_logger
 
 logger = get_logger("download_models")
 
-LLM_MODEL_URL = "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf?download=true"
+LLM_MODEL_URL = "https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf/resolve/main/Phi-3-mini-4k-instruct-q4.gguf"
 EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
 
 

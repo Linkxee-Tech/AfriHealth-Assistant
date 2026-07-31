@@ -55,3 +55,51 @@ def test_rag_add_and_retrieve_documents(engines):
     added = rag.add_documents(docs)
     # In stub mode (no ChromaDB) returns 0; with ChromaDB returns 2
     assert added >= 0
+
+
+def test_rag_tenant_isolation(engines):
+    rag, _, _ = engines
+    if rag._collection is None:
+        pytest.skip("ChromaDB is not active in this test runner environment")
+
+    # Add three documents: one public/global, one private to user 1, one private to user 2
+    docs = [
+        {
+            "text": "Global malaria treatment guidelines.",
+            "source": "global.txt",
+            "chunk_id": 0,
+            "metadata": {"visibility": "public", "user_id": 0}
+        },
+        {
+            "text": "User 1 medical record containing secret diagnosis code alpha.",
+            "source": "user1.txt",
+            "chunk_id": 1,
+            "metadata": {"visibility": "private", "user_id": 1}
+        },
+        {
+            "text": "User 2 medical record containing secret diagnosis code beta.",
+            "source": "user2.txt",
+            "chunk_id": 2,
+            "metadata": {"visibility": "private", "user_id": 2}
+        }
+    ]
+    rag.add_documents(docs)
+
+    # 1. Retrieve as user 1 -> should get global + user 1 docs, but NOT user 2 docs
+    results_user1 = rag.retrieve("diagnosis code", user_id=1, top_k=5)
+    texts_user1 = [r["text"] for r in results_user1]
+    assert any("alpha" in t for t in texts_user1)
+    assert not any("beta" in t for t in texts_user1)
+
+    # 2. Retrieve as user 2 -> should get global + user 2 docs, but NOT user 1 docs
+    results_user2 = rag.retrieve("diagnosis code", user_id=2, top_k=5)
+    texts_user2 = [r["text"] for r in results_user2]
+    assert any("beta" in t for t in texts_user2)
+    assert not any("alpha" in t for t in texts_user2)
+
+    # 3. Retrieve as anonymous -> should get global docs only, NOT user 1 or user 2 docs
+    results_anon = rag.retrieve("diagnosis code", user_id=None, top_k=5)
+    texts_anon = [r["text"] for r in results_anon]
+    assert not any("alpha" in t for t in texts_anon)
+    assert not any("beta" in t for t in texts_anon)
+

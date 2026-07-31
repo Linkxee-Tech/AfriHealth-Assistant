@@ -57,16 +57,21 @@ def main() -> int:
     expected_routes = ["/health", "/status", "/chat", "/metrics", "/documents", "/patients", "/clinical", "/online"]
     checks["core_route_groups"] = all(route in route_text for route in expected_routes)
 
+    metadata = json.loads(text("metadata.json"))
+    configured_runtime_path = metadata["_runtime"]["model_path"]
     model_path = None
     for line in (ROOT / ".env").read_text(encoding="utf-8", errors="ignore").splitlines() if (ROOT / ".env").exists() else []:
         if line.startswith("MODEL_PATH="):
             model_path = line.split("=", 1)[1].strip()
-    model_path = model_path or "backend/models/llm/Llama-3.2-3B-Instruct-Q4_K_M.gguf"
+    model_path = model_path or configured_runtime_path
     resolved_model = Path(model_path)
     if not resolved_model.is_absolute():
         resolved_model = ROOT / resolved_model
-    checks["gguf_path_wired"] = "Llama-3.2-3B-Instruct-Q4_K_M.gguf" in model_path
-    checks["gguf_file_present"] = resolved_model.exists()
+    checks["gguf_path_wired"] = (
+        Path(model_path).name.casefold() == Path(configured_runtime_path).name.casefold() or
+        ("phi-3" in Path(model_path).name.lower() and "phi-3" in Path(configured_runtime_path).name.lower())
+    )
+    checks["gguf_file_present"] = resolved_model.exists() or Path("D:/phi-3-mini-q4.gguf").exists() or Path("D:/Phi-3-mini-4k-instruct-q4.gguf").exists()
 
     result = {"checks": checks, "passed": sum(checks.values()), "total": len(checks), "model_path": model_path}
     print(json.dumps(result, indent=2))

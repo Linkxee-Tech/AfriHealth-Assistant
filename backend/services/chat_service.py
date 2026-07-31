@@ -74,7 +74,8 @@ class ChatService:
         session_id: str = None,
         top_k: int = 5,
         detail_level: str = "Standard",
-        hybrid: bool = True
+        hybrid: bool = True,
+        user_id: int | None = None,
     ) -> Dict:
         """Blocking chat — returns full answer + sources + metadata."""
         _ensure_rag_ready()
@@ -84,12 +85,12 @@ class ChatService:
         detected_language = _detect_language(query, fallback=language)
 
         if hybrid:
-            ctx = hybrid_orchestrator.prepare_context(query, top_k)
+            ctx = hybrid_orchestrator.prepare_context(query, top_k, user_id=user_id)
             context_str = ctx["context_str"]
             sources = ctx["sources"]
             mode = ctx["mode"]
         else:
-            result = rag_engine.generate_answer(query, language=detected_language, top_k=top_k)
+            result = rag_engine.generate_answer(query, language=detected_language, top_k=top_k, user_id=user_id)
             return {
                 "answer": result["answer"],
                 "sources": result["sources"],
@@ -143,7 +144,8 @@ class ChatService:
         session_id: str = None,
         top_k: int = 5,
         detail_level: str = "Standard",
-        hybrid: bool = True
+        hybrid: bool = True,
+        user_id: int | None = None,
     ) -> Generator[str, None, None]:
         """Streaming chat."""
         _ensure_rag_ready()
@@ -152,12 +154,12 @@ class ChatService:
         detected_language = _detect_language(query, fallback=language)
 
         if hybrid:
-            ctx = hybrid_orchestrator.prepare_context(query, top_k)
+            ctx = hybrid_orchestrator.prepare_context(query, top_k, user_id=user_id)
             context_str = ctx["context_str"]
             sources = ctx["sources"]
             mode = ctx["mode"]
         else:
-            ctx = rag_engine.retrieve_context(query, top_k)
+            ctx = hybrid_orchestrator._prepare_offline(query, top_k, user_id=user_id)
             context_str = ctx["context_str"]
             sources = ctx["sources"]
             mode = "OFFLINE"

@@ -62,6 +62,11 @@ prometheus-client
 
 # Utilities
 langdetect
+
+# Code quality and security checks
+ruff
+bandit
+mypy
 # ===== Voice Transcription (Offline Whisper) =====
 faster-whisper
 

@@ -88,7 +88,7 @@ class RAGEngine:
         self._initialized = True
 
     # ------------------------------------------------------------------
-    def retrieve(self, query: str, top_k: int = 3) -> List[Dict]:
+    def retrieve(self, query: str, top_k: int = 3, user_id: int | None = None) -> List[Dict]:
         """Retrieve the top-k most relevant document chunks for a query."""
         if not self._initialized:
             self.initialize()
@@ -98,7 +98,7 @@ class RAGEngine:
             query_embedding = self._embedder.embed(query)
             results = self._collection.query(
                 query_embeddings=[query_embedding],
-                n_results=min(top_k, self._collection.count() or 1),
+                n_results=self._collection.count() or 1,
                 include=["documents", "metadatas", "distances"],
             )
             chunks = []
@@ -107,12 +107,16 @@ class RAGEngine:
                 results["metadatas"][0],
                 results["distances"][0],
             ):
+                if meta.get("visibility") == "private" and str(meta.get("user_id")) != str(user_id):
+                    continue
                 chunks.append({
                     "text": doc,
                     "source": meta.get("source", "Unknown"),
                     "chunk_id": meta.get("chunk_id", ""),
                     "relevance_score": round(1 - dist, 4),
                 })
+                if len(chunks) == top_k:
+                    break
             return chunks
         except Exception as exc:
             logger.error("RAG retrieval error: %s", exc)
@@ -124,6 +128,7 @@ class RAGEngine:
         query: str,
         language: str = "English",
         top_k: int = 3,
+        user_id: Optional[int] = None,
     ) -> Dict:
         """Blocking RAG answer. Returns answer + sources dict."""
         if not self._initialized:
@@ -131,7 +136,7 @@ class RAGEngine:
         if self._llm is None:
             return {"answer": "[LLM not set on RAG engine]", "sources": []}
 
-        chunks = self.retrieve(query, top_k=top_k)
+        chunks = self.retrieve(query, top_k=top_k, user_id=user_id)
         context = "\n\n".join(
             f"[Source: {c['source']}]\n{c['text']}" for c in chunks
         )
@@ -149,6 +154,7 @@ class RAGEngine:
         query: str,
         language: str = "English",
         top_k: int = 3,
+        user_id: Optional[int] = None,
     ) -> Generator[str, None, None]:
         """Streaming RAG answer - yields text tokens."""
         if not self._initialized:
@@ -157,7 +163,7 @@ class RAGEngine:
             yield "[LLM not set on RAG engine]"
             return
 
-        chunks = self.retrieve(query, top_k=top_k)
+        chunks = self.retrieve(query, top_k=top_k, user_id=user_id)
         context = "\n\n".join(
             f"[Source: {c['source']}]\n{c['text']}" for c in chunks
         )
@@ -188,10 +194,16 @@ class RAGEngine:
         try:
             texts      = [d["text"] for d in documents]
             embeddings = self._embedder.embed_batch(texts)
-            ids        = [f"{d.get('source','doc')}_{d.get('chunk_id', i)}"
-                         for i, d in enumerate(documents)]
-            metadatas  = [
-                {"source": d.get("source", "Unknown"), "chunk_id": str(d.get("chunk_id", i))}
+            ids = [
+                f"{d.get('metadata', {}).get('user_id', 'global')}::{d.get('source', 'doc')}_{d.get('chunk_id', i)}"
+                for i, d in enumerate(documents)
+            ]
+            metadatas = [
+                {
+                    "source": d.get("source", "Unknown"),
+                    "chunk_id": str(d.get("chunk_id", i)),
+                    **d.get("metadata", {}),
+                }
                 for i, d in enumerate(documents)
             ]
             batch_size = 4000

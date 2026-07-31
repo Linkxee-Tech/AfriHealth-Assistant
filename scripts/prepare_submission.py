@@ -113,9 +113,12 @@ def prepare(gate: str = "Gate_1_Submission"):
         logger.error("Fix the above issues before submitting.")
         return
 
-    # 2. Run tests (bypassed in packaging since verified passing)
-    backend_ok  = True
-    frontend_ok = True
+    # 2. Run tests and stop packaging when a required suite fails.
+    backend_ok = run_tests()
+    frontend_ok = run_frontend_tests()
+    if not backend_ok or not frontend_ok:
+        logger.error("Tests failed; submission package was not created.")
+        return
 
     # 3. GitHub link placeholder
     write_github_link_placeholder(gate_dir)

@@ -31,6 +31,7 @@ def _fetch_who_feed() -> List[dict]:
     for feed_url in WHO_FEEDS:
         try:
             resp = requests.get(feed_url, timeout=10, headers={"User-Agent": "AfriHealth/1.0"})
+            resp.raise_for_status()
             feed = feedparser.parse(resp.text)
             for entry in feed.entries[:15]:
                 alerts.append({

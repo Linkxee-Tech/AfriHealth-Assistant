@@ -7,7 +7,6 @@ import io
 from pathlib import Path
 from typing import List, Dict
 
-from backend.core.rag_engine import rag_engine
 from backend.core.ocr_engine import ocr_engine
 from backend.config import settings
 from backend.utils.logger import get_logger

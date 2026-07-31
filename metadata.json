@@ -32,6 +32,6 @@
     "packaging": "binary_bundle"
   },
   "_runtime": {
-    "model_path": "model/Phi-3-mini-4k-instruct-q4.gguf"
+    "model_path": "backend/models/llm/Phi-3-mini-4k-instruct-q4.gguf"
   }
 }

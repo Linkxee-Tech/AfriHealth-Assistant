@@ -89,23 +89,23 @@ class HybridOrchestrator:
             logger.error("Web search failed: %s", e)
             return []
 
-    def prepare_context(self, query: str, top_k: int = 3) -> Dict[str, Any]:
+    def prepare_context(self, query: str, top_k: int = 3, user_id: int | None = None) -> Dict[str, Any]:
         """
         Entry point to process a user query using the best available resources.
         Returns the combined context string and sources list.
         """
-        cache_key = f"{query.strip().lower()}::{top_k}"
+        cache_key = f"{user_id}::{query.strip().lower()}::{top_k}"
         cached = self._cache.get(cache_key)
         if cached and time.monotonic() - cached[0] < self.cache_ttl_seconds:
             return {**cached[1], "cached": True}
         mode = self.decide_processing_mode(query)
         
         if mode == "OFFLINE":
-            result = self._prepare_offline(query, top_k)
+            result = self._prepare_offline(query, top_k, user_id=user_id)
             self._cache[cache_key] = (time.monotonic(), result)
             return result
             
-        local_chunks = self.rag_engine.retrieve(query, top_k=top_k) if mode != "ONLINE" else []
+        local_chunks = self.rag_engine.retrieve(query, top_k=top_k, user_id=user_id) if mode != "ONLINE" else []
         
         result = self._prepare_hybrid(query, top_k, local_chunks)
         self._cache[cache_key] = (time.monotonic(), result)
@@ -114,21 +114,21 @@ class HybridOrchestrator:
     def decide_mode(self, query: str) -> str:
         return self.decide_processing_mode(query)
 
-    def process_offline(self, query: str, top_k: int = 3) -> Dict[str, Any]:
-        return self._prepare_offline(query, top_k)
+    def process_offline(self, query: str, top_k: int = 3, user_id: int | None = None) -> Dict[str, Any]:
+        return self._prepare_offline(query, top_k, user_id=user_id)
 
-    def process_hybrid(self, query: str, top_k: int = 3) -> Dict[str, Any]:
-        return self._prepare_hybrid(query, top_k, self.rag_engine.retrieve(query, top_k=top_k))
+    def process_hybrid(self, query: str, top_k: int = 3, user_id: int | None = None) -> Dict[str, Any]:
+        return self._prepare_hybrid(query, top_k, self.rag_engine.retrieve(query, top_k=top_k, user_id=user_id))
 
     def combine_contexts(self, local_chunks: List[Dict[str, Any]], web_results: List[Dict[str, Any]]) -> Dict[str, Any]:
         return {"context_str": "\n\n".join([*(c.get("text", "") for c in local_chunks), *(r.get("content", "") for r in web_results)]), "sources": [*(c.get("source", "") for c in local_chunks), *(r.get("source", "") for r in web_results)]}
 
-    def process_query(self, query: str, top_k: int = 3) -> Dict[str, Any]:
-        return self.prepare_context(query, top_k)
+    def process_query(self, query: str, top_k: int = 3, user_id: int | None = None) -> Dict[str, Any]:
+        return self.prepare_context(query, top_k, user_id=user_id)
         
-    def _prepare_offline(self, query: str, top_k: int, pre_fetched=None) -> Dict[str, Any]:
+    def _prepare_offline(self, query: str, top_k: int, pre_fetched=None, user_id: int | None = None) -> Dict[str, Any]:
         """Prepare context solely from offline RAG."""
-        chunks = pre_fetched if pre_fetched is not None else self.rag_engine.retrieve(query, top_k=top_k)
+        chunks = pre_fetched if pre_fetched is not None else self.rag_engine.retrieve(query, top_k=top_k, user_id=user_id)
         context = "\n\n".join(f"[Source: {c['source']}]\n{c['text']}" for c in chunks) if chunks else "No specific offline knowledge found."
         sources = list(set([c['source'] for c in chunks])) if chunks else []
         return {

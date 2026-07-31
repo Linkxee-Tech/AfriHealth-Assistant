@@ -35,7 +35,7 @@ class DocumentService:
                 rag_engine.initialize()
 
             # Create metadata dict
-            metadata = {"source": filename}
+            metadata = {"source": filename, "visibility": "private"}
             if user_id is not None:
                 metadata["user_id"] = user_id
             if patient_id is not None:
