@@ -115,6 +115,8 @@ def main():
                                 st.switch_page("pages/1_💬_Chat.py")
                         else:
                             st.error(result.get("detail", "Login failed"))
+                
+                st.markdown("<div style='text-align: center; color: var(--text-secondary, #888); font-size: 0.8rem; margin-top: 10px;'>💡 Hint: Default admin login is <b>admin</b> / <b>adminpassword</b></div>", unsafe_allow_html=True)
                             
         with tab2:
             st.markdown("<br>", unsafe_allow_html=True)
