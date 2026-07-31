@@ -25,7 +25,7 @@ def login(username, password):
             resp = requests.post(
                 f"{config.BACKEND_BASE_URL}/auth/login",
                 data={"username": username, "password": password},
-                timeout=2,
+                timeout=10,
             )
             return resp.json()
         except requests.RequestException as e:
