@@ -922,3 +922,36 @@ def get_me() -> dict:
         except Exception:
             pass
     return {"username": st.session_state.get("username", "user"), "email": "", "is_admin": False}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Admin — User Management
+# ─────────────────────────────────────────────────────────────────────────────
+def admin_list_users() -> list:
+    """Return all registered users (admin only)."""
+    result = _get("/admin/users")
+    if isinstance(result, list):
+        return result
+    return []
+
+
+def admin_set_user_status(user_id: int, is_active: bool) -> dict:
+    """Block (is_active=False) or unblock (is_active=True) a user account."""
+    try:
+        resp = requests.patch(
+            f"{_base_url()}/admin/users/{user_id}/status",
+            json={"is_active": is_active},
+            headers=_auth_headers(),
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            return resp.json()
+        return {"detail": resp.text}
+    except Exception as exc:
+        return {"detail": str(exc)}
+
+
+def admin_delete_user(user_id: int) -> dict:
+    """Permanently delete a user account (admin only)."""
+    return _delete(f"/admin/users/{user_id}")
+

@@ -68,6 +68,12 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    if not getattr(user, "is_active", True):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been suspended. Please contact an administrator.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires

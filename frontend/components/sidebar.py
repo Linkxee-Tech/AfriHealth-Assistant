@@ -100,11 +100,22 @@ def render_sidebar():
                 "</div>",
                 unsafe_allow_html=True,
             )
-            _nav_header("System")
+            _nav_header("Administration")
             st.page_link("pages/12_📈_Admin.py",    label="📈 Admin Dashboard")
             st.page_link("pages/7_⚙️_Settings.py", label="⚙️ System Settings")
 
-            _nav_header("Content")
+            _nav_header("AI Tools")
+            st.page_link("pages/1_💬_Chat.py",               label="💬 Chat")
+            st.page_link("pages/9_🔬_Symptom_Checker.py",    label="🔬 Symptom Checker")
+            st.page_link("pages/10_🚨_Outbreak_Alerts.py",   label="🚨 Outbreak Alerts")
+            st.page_link("pages/11_💊_Medications.py",       label="💊 Medications")
+            st.page_link("pages/6_🩺_Clinical_Support.py",  label="🩺 Clinical Support")
+
+            _nav_header("Patient & Metrics")
+            st.page_link("pages/5_👨‍⚕️_Patients.py",    label="👨‍⚕️ Patients")
+            st.page_link("pages/2_📊_Health_Metrics.py", label="📊 Health Metrics")
+
+            _nav_header("Records")
             st.page_link("pages/3_📁_Documents.py", label="📁 Documents")
             st.page_link("pages/4_📋_History.py",   label="📋 Conversation History")
 
