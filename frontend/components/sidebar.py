@@ -72,6 +72,8 @@ def render_sidebar():
             unsafe_allow_html=True,
         )
 
+        st.markdown("---")
+
         # Determine user role
         if "is_admin" not in st.session_state:
             from utils.api_client import get_me
@@ -83,56 +85,6 @@ def render_sidebar():
 
         is_admin = st.session_state.get("is_admin", False)
         username = st.session_state.get("username", "")
-
-        # Role badge + username
-        st.markdown(_role_badge(is_admin), unsafe_allow_html=True)
-        if username:
-            st.markdown(
-                f"<div style='font-size:0.8rem;color:var(--text-secondary,#888);"
-                f"margin-top:2px;'>@{username}</div>",
-                unsafe_allow_html=True,
-            )
-
-        # Online / RAM status
-        st.markdown("---")
-        from utils.api_client import get_online_status
-        online_status = get_online_status()
-        is_hybrid = online_status.get("status") == "online"
-
-        if is_hybrid:
-            st.markdown(
-                "<div style='background:rgba(46,170,125,0.1);"
-                "border:1px solid var(--medical-green);"
-                "color:var(--medical-green);padding:6px 12px;"
-                "border-radius:20px;text-align:center;"
-                "font-size:0.8rem;font-weight:bold;'>"
-                "🌐 Hybrid Mode Active</div>",
-                unsafe_allow_html=True,
-            )
-        else:
-            offline_text = t("offline_mode")
-            st.markdown(
-                f"<div style='background:rgba(192,57,43,0.1);"
-                f"border:1px solid #c0392b;color:#c0392b;"
-                f"padding:6px 12px;border-radius:20px;"
-                f"text-align:center;font-size:0.8rem;font-weight:bold;'>"
-                f"{offline_text}</div>",
-                unsafe_allow_html=True,
-            )
-
-        import psutil
-        sys_mem = psutil.virtual_memory()
-        mem_used = round(sys_mem.used / (1024**3), 1)
-        mem_total = round(sys_mem.total / (1024**3), 1)
-        status_icon = "🌐" if is_hybrid else "🟢"
-        status_label = "Hybrid" if is_hybrid else "Local"
-        st.markdown(
-            f"<div style='font-size:0.85rem;margin:8px 0;'>"
-            f"{status_icon} {status_label} &nbsp;|&nbsp; 💾 RAM: {mem_used}G / {mem_total}G</div>",
-            unsafe_allow_html=True,
-        )
-
-        st.markdown("---")
 
         # ──────────────────────────────────────────────────────────────────
         # ADMIN NAVIGATION
@@ -191,6 +143,55 @@ def render_sidebar():
             index=config.LANGUAGES.index(st.session_state.language),
             label_visibility="collapsed",
             key="sidebar_language_select",
+        )
+
+        st.markdown("---")
+
+        # Role badge + username
+        st.markdown(_role_badge(is_admin), unsafe_allow_html=True)
+        if username:
+            st.markdown(
+                f"<div style='font-size:0.8rem;color:var(--text-secondary,#888);"
+                f"margin-top:2px;'>@{username}</div>",
+                unsafe_allow_html=True,
+            )
+
+        # Online / RAM status
+        from utils.api_client import get_online_status
+        online_status = get_online_status()
+        is_hybrid = online_status.get("status") == "online"
+
+        if is_hybrid:
+            st.markdown(
+                "<div style='background:rgba(46,170,125,0.1);"
+                "border:1px solid var(--medical-green);"
+                "color:var(--medical-green);padding:6px 12px;"
+                "border-radius:20px;text-align:center;"
+                "font-size:0.8rem;font-weight:bold;margin-top:10px;'>"
+                "🌐 Hybrid Mode Active</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            offline_text = t("offline_mode")
+            st.markdown(
+                f"<div style='background:rgba(192,57,43,0.1);"
+                f"border:1px solid #c0392b;color:#c0392b;"
+                f"padding:6px 12px;border-radius:20px;"
+                f"text-align:center;font-size:0.8rem;font-weight:bold;margin-top:10px;'>"
+                f"{offline_text}</div>",
+                unsafe_allow_html=True,
+            )
+
+        import psutil
+        sys_mem = psutil.virtual_memory()
+        mem_used = round(sys_mem.used / (1024**3), 1)
+        mem_total = round(sys_mem.total / (1024**3), 1)
+        status_icon = "🌐" if is_hybrid else "🟢"
+        status_label = "Hybrid" if is_hybrid else "Local"
+        st.markdown(
+            f"<div style='font-size:0.85rem;margin:8px 0;'>"
+            f"{status_icon} {status_label} &nbsp;|&nbsp; 💾 RAM: {mem_used}G / {mem_total}G</div>",
+            unsafe_allow_html=True,
         )
 
         # Logout

@@ -87,7 +87,7 @@ def stream_chat(query: str, language: str, hybrid: bool = True, detail_level: st
                 json={"query": query, "language": language, "hybrid": hybrid},
                 headers=get_auth_headers(),
                 stream=True,
-                timeout=30,
+                timeout=120,
             ) as resp:
                 buffer = ""
                 for chunk in resp.iter_content(chunk_size=None, decode_unicode=True):
@@ -459,7 +459,7 @@ def get_online_cost():
 def perform_online_search(query: str, limit: int = 5):
     if config.BACKEND_CONNECTED:
         try:
-            resp = requests.post(f"{config.BACKEND_BASE_URL}/online/search", json={"query": query, "limit": limit}, headers=get_auth_headers(), timeout=10)
+            resp = requests.post(f"{config.BACKEND_BASE_URL}/online/search", json={"query": query, "limit": limit}, headers=get_auth_headers(), timeout=45)
             return resp.json()
         except requests.RequestException:
             pass
