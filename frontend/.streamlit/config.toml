@@ -1,0 +1,12 @@
+[browser]
+gatherUsageStats = false
+
+[theme]
+base = "dark"
+primaryColor = "#2EAA7D"
+backgroundColor = "#0F1117"
+secondaryBackgroundColor = "#1A1D27"
+textColor = "#FAFAFA"
+
+[client]
+showSidebarNavigation = false
