@@ -116,7 +116,7 @@ def main():
                         else:
                             st.error(result.get("detail", "Login failed"))
                 
-                st.markdown("<div style='text-align: center; color: var(--text-secondary, #888); font-size: 0.8rem; margin-top: 10px;'>💡 Hint: Default admin login is <b>admin</b> / <b>adminpassword</b></div>", unsafe_allow_html=True)
+                st.markdown("<div style='text-align: center; color: var(--text-secondary, #888); font-size: 0.8rem; margin-top: 10px;'>💡 Hint: Remember your login <b>password</b></div>", unsafe_allow_html=True)
                             
         with tab2:
             st.markdown("<br>", unsafe_allow_html=True)
@@ -195,6 +195,8 @@ def main():
                 admin_password = st.text_input("Admin Password", type="password", placeholder="Enter admin password")
                 admin_submitted = st.form_submit_button("Access Admin Panel", width="stretch")
                 
+                st.markdown("<div style='text-align: center; color: var(--text-secondary, #888); font-size: 0.8rem; margin-top: 10px;'>💡 Hint: Default Admin Login is <b>admin</b> / <b>adminpassword</b></div>", unsafe_allow_html=True)
+                 
                 if admin_submitted:
                     if not admin_username or not admin_password:
                         st.error("Please enter username and password")
