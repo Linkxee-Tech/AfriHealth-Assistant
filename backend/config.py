@@ -95,6 +95,10 @@ settings = Settings()
 
 
 def resolve_project_path(value: str) -> Path:
-    """Resolve relative paths from the repository root, not the shell cwd."""
+    """Resolve relative paths from the repository root, not the shell cwd.
+    If value is an HTTP/HTTPS URL, return it as-is (as a Path wrapping is not appropriate).
+    """
+    if value and (value.startswith("http://") or value.startswith("https://")):
+        return Path(value)  # caller must handle URL strings separately
     path = Path(value).expanduser()
     return path if path.is_absolute() else BASE_DIR.parent / path

@@ -46,7 +46,12 @@ class LLMEngine:
         provider: str = None,
     ):
         self.provider = provider or settings.LLM_PROVIDER
-        self.model_path = str(resolve_project_path(model_path or settings.MODEL_PATH)) if settings.MODEL_PATH else ""
+        raw_path = model_path or settings.MODEL_PATH or ""
+        # Keep URLs as raw strings — resolve_project_path mangles them on Windows
+        if raw_path.startswith("http://") or raw_path.startswith("https://"):
+            self.model_path = raw_path
+        else:
+            self.model_path = str(resolve_project_path(raw_path)) if raw_path else ""
         self.n_threads  = n_threads  or settings.NUM_THREADS
         self.n_ctx      = n_ctx      or settings.CONTEXT_LENGTH
         self._model     = None
@@ -171,9 +176,32 @@ class LLMEngine:
         import sys
         is_testing = "pytest" in sys.modules or any("pytest" in arg for arg in sys.argv)
         model_file = None
+        
+        # 1. Check local model/ folder relative to project root first (100% offline fallback)
+        local_fallback = Path(resolve_project_path("model/Phi-3-mini-4k-instruct-q4.gguf"))
+        fallbacks = [
+            str(local_fallback),
+            "D:/Phi-3-mini-4k-instruct-q4.gguf",
+            "D:/Phi-3-mini-4k-instruct-q4.GGUF",
+            "D:/phi-3-mini-q4.gguf",
+            "D:/phi-3-mini.gguf",
+        ]
+        
+        # Also check if self.model_path is already a valid local file
+        if self.model_path and not self.model_path.startswith("http"):
+            fallbacks.insert(0, self.model_path)
+            
+        for fb in fallbacks:
+            fb_path = Path(fb)
+            if fb_path.exists():
+                self.model_path = str(fb_path)
+                model_file = fb_path
+                logger.info("Found local model file at %s", fb_path)
+                break
 
-        if self.model_path and "huggingface.co" in self.model_path:
-            logger.info("HuggingFace URL detected. Downloading model automatically...")
+        # 2. If not found locally, and the path is a HuggingFace URL, try to download it
+        if not model_file and self.model_path and "huggingface.co" in self.model_path:
+            logger.info("Local model not found. HuggingFace URL detected. Downloading model automatically...")
             try:
                 import urllib.parse
                 from huggingface_hub import hf_hub_download
@@ -195,34 +223,11 @@ class LLMEngine:
                 self.model_path = cached_path
                 model_file = Path(cached_path)
             except Exception as e:
+                logger.warning("Failed to download model from HuggingFace (offline?): %s", e)
+                # hf_hub_download might fail if offline and not cached.
                 self._load_error = f"Failed to download model from HuggingFace: {e}"
                 self._loaded = True
                 return False
-        else:
-            model_file = Path(self.model_path) if self.model_path else None
-            
-        if model_file and not model_file.exists() and not is_testing and "missing-model" not in self.model_path:
-            # 1. Check local model/ folder relative to project root
-            local_fallback = Path(resolve_project_path("model/Phi-3-mini-4k-instruct-q4.gguf"))
-            if local_fallback.exists():
-                self.model_path = str(local_fallback)
-                model_file = local_fallback
-                logger.info("Found local model file at %s", local_fallback)
-            else:
-                # 2. Check common fallbacks on D: drive for convenience
-                fallbacks = [
-                    "D:/Phi-3-mini-4k-instruct-q4.gguf",
-                    "D:/Phi-3-mini-4k-instruct-q4.GGUF",
-                    "D:/phi-3-mini-q4.gguf",
-                    "D:/phi-3-mini.gguf",
-                ]
-                for fb in fallbacks:
-                    fb_path = Path(fb)
-                    if fb_path.exists():
-                        self.model_path = fb
-                        model_file = fb_path
-                        logger.info("Found fallback model file at %s", fb)
-                        break
 
         if not model_file or not model_file.exists():
             logger.warning("Model file not found at %s — stub mode.", self.model_path)
