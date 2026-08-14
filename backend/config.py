@@ -20,7 +20,8 @@ class Settings(BaseSettings):
 
     # Model — Local or Remote
     # For online deployment, leave MODEL_PATH empty and set LLM_PROVIDER to "huggingface", "gemini", or "groq"
-    MODEL_PATH: str = "https://huggingface.co/QuantFactory/Meta-Llama-3-8B-Instruct-GGUF/resolve/main/Meta-Llama-3-8B-Instruct.Q4_K_M.gguf"
+    # Core LLM settings - We default to a highly optimized Q4 GGUF of Phi-3-mini to pass the ADTC 7GB memory rule
+    MODEL_PATH: str = "https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf/resolve/main/Phi-3-mini-4k-instruct-q4.gguf"
     LLM_PROVIDER: str = "local"  # Options: "local", "huggingface", "gemini", "groq"
     HUGGINGFACE_API_KEY: str = ""  # Free inference API at huggingface.co
     HUGGINGFACE_MODEL_ID: str = "Qwen/Qwen2.5-7B-Instruct"
