@@ -374,14 +374,21 @@ class LLMEngine:
 
         try:
             if self.provider == "huggingface":
-                yield from self._stream_huggingface(prompt, max_tokens, temperature, top_p)
+                for chunk in self._stream_huggingface(prompt, max_tokens, temperature, top_p):
+                    yield chunk
             elif self.provider == "groq":
-                yield from self._stream_groq(prompt, max_tokens, temperature, top_p)
+                for chunk in self._stream_groq(prompt, max_tokens, temperature, top_p):
+                    yield chunk
             elif self.provider == "gemini":
-                yield from self._stream_gemini(prompt, max_tokens, temperature, top_p)
+                for chunk in self._stream_gemini(prompt, max_tokens, temperature, top_p):
+                    yield chunk
             else:
                 # Local llama.cpp
-                yield from self._stream_local(prompt, max_tokens, temperature, top_p)
+                for chunk in self._stream_local(prompt, max_tokens, temperature, top_p):
+                    yield chunk
+        except (StopIteration, RuntimeError) as exc:
+            # Python 3.7+: StopIteration inside a generator becomes RuntimeError
+            logger.warning("Stream exhausted (StopIteration/RuntimeError): %s", exc)
         except Exception as exc:
             logger.error("LLM stream error: %s", exc)
             yield f"[LLM stream error: {exc}]"
@@ -404,16 +411,47 @@ class LLMEngine:
 
     def _stream_huggingface(self, prompt: str, max_tokens: int, temperature: float, top_p: float) -> Generator[str, None, None]:
         """Stream using Hugging Face Inference API."""
-        for chunk in self._model.text_generation(
-            prompt,
-            max_new_tokens=max_tokens,
-            temperature=temperature,
-            top_p=top_p,
-            stream=True,
-            details=True,
-        ):
-            if hasattr(chunk, "token") and chunk.token.text:
-                yield chunk.token.text
+        try:
+            for chunk in self._model.text_generation(
+                prompt,
+                max_new_tokens=max_tokens,
+                temperature=max(temperature, 0.01),  # HF requires > 0
+                top_p=top_p,
+                stream=True,
+                details=True,
+            ):
+                try:
+                    if hasattr(chunk, "token") and chunk.token and chunk.token.text:
+                        text = chunk.token.text
+                        # Skip special tokens
+                        if not text.startswith("<") or not text.endswith(">"):
+                            yield text
+                    elif isinstance(chunk, str) and chunk:
+                        yield chunk
+                except StopIteration:
+                    return
+        except StopIteration:
+            return
+        except Exception as exc:
+            logger.warning("HuggingFace stream error: %s", exc)
+            # Fall back to non-streaming call
+            try:
+                result = self._model.text_generation(
+                    prompt,
+                    max_new_tokens=max_tokens,
+                    temperature=max(temperature, 0.01),
+                    top_p=top_p,
+                    details=False,
+                )
+                if result:
+                    words = result.split()
+                    import time as _time
+                    for i, w in enumerate(words):
+                        _time.sleep(0.01)
+                        yield w + (" " if i < len(words) - 1 else "")
+            except Exception as e2:
+                logger.error("HuggingFace fallback also failed: %s", e2)
+                yield f"[HuggingFace error: {e2}]"
 
     def _stream_groq(self, prompt: str, max_tokens: int, temperature: float, top_p: float) -> Generator[str, None, None]:
         """Stream using Groq API."""

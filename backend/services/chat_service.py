@@ -63,7 +63,8 @@ def _use_gemini_generate(full_prompt: str, system_prompt: str) -> str:
 
 def _use_gemini_stream(full_prompt: str, system_prompt: str) -> Generator[str, None, None]:
     """Call Gemini cloud and stream back text chunks."""
-    yield from gemini_client.stream_generate(full_prompt, system_instruction=system_prompt)
+    for chunk in gemini_client.stream_generate(full_prompt, system_instruction=system_prompt):
+        yield chunk
 
 
 class ChatService:
@@ -180,13 +181,15 @@ class ChatService:
 
         if use_cloud and gemini_client.is_configured:
             try:
-                yield from _use_gemini_stream(full_prompt, system_prompt)
+                for chunk in _use_gemini_stream(full_prompt, system_prompt):
+                    yield chunk
                 return
             except Exception:
                 logger.exception("Cloud AI (Gemini) streaming failed — falling back to local LLM stub")
 
         # Local LLM (or stub if model file absent)
-        yield from llm_engine.stream_generate(full_prompt)
+        for chunk in llm_engine.stream_generate(full_prompt):
+            yield chunk
 
     def save_conversation(self, messages: List[Dict], session_id: str = None, user_id: int = None) -> str:
         """Persist a conversation to SQLite."""
@@ -196,7 +199,8 @@ class ChatService:
         return self.generate_response(query, **kwargs)
 
     def process_stream(self, query: str, **kwargs) -> Generator[str, None, None]:
-        yield from self.stream_response(query, **kwargs)
+        for chunk in self.stream_response(query, **kwargs):
+            yield chunk
 
     @staticmethod
     def format_response(result: Dict) -> Dict:
