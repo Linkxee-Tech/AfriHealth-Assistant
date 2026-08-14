@@ -64,6 +64,18 @@ st.markdown(f"""
         div.stTabs [data-baseweb="tab-list"] {{
             background-color: transparent !important;
         }}
+        div[data-testid="stImageContainer"] {{
+            max-width: 50%;
+            width: 50%;
+            margin: 0 auto 1rem auto;
+            display: block;
+        }}
+        div[data-testid="stImageContainer"] img {{
+            display: block;
+            width: 100%;
+            height: auto;
+            margin: 0 auto;
+        }}
     </style>
 """, unsafe_allow_html=True)
 

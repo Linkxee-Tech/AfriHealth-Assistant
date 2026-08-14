@@ -19,8 +19,13 @@ class Settings(BaseSettings):
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
 
-    # Model
-    MODEL_PATH: str = str(BASE_DIR / "models" / "llm" / "Phi-3-mini-4k-instruct-q4.gguf")
+    # Model — Local or Remote
+    # For online deployment, leave MODEL_PATH empty and set LLM_PROVIDER to "huggingface", "gemini", or "groq"
+    MODEL_PATH: str = "https://huggingface.co/QuantFactory/Meta-Llama-3-8B-Instruct-GGUF/resolve/main/Meta-Llama-3-8B-Instruct.Q4_K_M.gguf"
+    LLM_PROVIDER: str = "local"  # Options: "local", "huggingface", "gemini", "groq"
+    HUGGINGFACE_API_KEY: str = ""  # Free inference API at huggingface.co
+    HUGGINGFACE_MODEL_ID: str = "meta-llama/Llama-2-7b-chat-hf"
+    GROQ_API_KEY: str = ""  # Fast LLM API
     EMBEDDING_MODEL: str = str(BASE_DIR / "models" / "embedding" / "all-MiniLM-L6-v2")
 
     # Database
