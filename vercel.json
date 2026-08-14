@@ -1,17 +1,12 @@
 {
-  "builds": [
-    {
-      "src": "backend/main.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "50mb"
-      }
-    }
-  ],
+  "framework": null,
+  "installCommand": "pip install fastapi uvicorn[standard] sqlalchemy langchain langchain-community chromadb sentence-transformers passlib[bcrypt] pydantic pydantic-settings pyjwt python-multipart python-dotenv requests psutil aiofiles pypdf python-docx duckduckgo-search google-genai huggingface-hub pillow pandas prometheus-client reportlab feedparser",
+  "buildCommand": "echo 'Build complete'",
+  "outputDirectory": null,
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "backend/main.py"
+      "dest": "/backend/main.py"
     }
   ],
   "env": {
