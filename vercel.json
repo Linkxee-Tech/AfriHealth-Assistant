@@ -1,0 +1,22 @@
+{
+  "builds": [
+    {
+      "src": "backend/main.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "50mb"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "backend/main.py"
+    }
+  ],
+  "env": {
+    "LLM_PROVIDER": "huggingface",
+    "HUGGINGFACE_MODEL_ID": "HuggingFaceH4/zephyr-7b-beta",
+    "BACKEND_CONNECTED": "true"
+  }
+}

@@ -99,6 +99,18 @@ embeddings, and stores the vectors under `backend/data/vector_db/chroma_db/`.
 
 ## Run the application
 
+### Important: LLM Configuration
+
+**For online deployment**, you don't need to download the GGUF model. Instead, use a free cloud API:
+
+- **Recommended**: [Groq](https://groq.com) (free, fast, no credit card)
+- **Alternative**: [Hugging Face Inference API](https://huggingface.co)
+- **Optional**: [Google Gemini](https://ai.google.dev)
+
+See [DEPLOYMENT_ONLINE.md](DEPLOYMENT_ONLINE.md) for complete setup instructions.
+
+### Running the Backend
+
 Start the backend from the project root in one terminal:
 
 ```bash
@@ -112,6 +124,8 @@ http://127.0.0.1:8000/health
 http://127.0.0.1:8000/status
 http://127.0.0.1:8000/docs
 ```
+
+### Running the Frontend
 
 Start the frontend in a second terminal:
 

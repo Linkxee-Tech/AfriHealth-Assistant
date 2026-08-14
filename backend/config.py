@@ -4,7 +4,6 @@ All other modules import from here; no raw os.getenv calls elsewhere.
 """
 
 from pydantic_settings import BaseSettings
-from pydantic_settings import NoDecode
 from pydantic import Field, field_validator
 from pathlib import Path
 import json
@@ -45,7 +44,7 @@ class Settings(BaseSettings):
 
     # CORS. Exact origins remain supported for production; the local regex
     # covers Streamlit/SPA development ports without requiring code changes.
-    ALLOWED_ORIGINS: Annotated[list[str], NoDecode] = ["http://localhost:8501", "http://127.0.0.1:8501"]
+    ALLOWED_ORIGINS: str | list[str] = ["http://localhost:8501", "http://127.0.0.1:8501"]
     ALLOWED_ORIGIN_REGEX: str = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
 
     # API Keys
