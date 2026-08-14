@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     MODEL_PATH: str = "https://huggingface.co/QuantFactory/Meta-Llama-3-8B-Instruct-GGUF/resolve/main/Meta-Llama-3-8B-Instruct.Q4_K_M.gguf"
     LLM_PROVIDER: str = "local"  # Options: "local", "huggingface", "gemini", "groq"
     HUGGINGFACE_API_KEY: str = ""  # Free inference API at huggingface.co
-    HUGGINGFACE_MODEL_ID: str = "meta-llama/Llama-2-7b-chat-hf"
+    HUGGINGFACE_MODEL_ID: str = "Qwen/Qwen2.5-7B-Instruct"
     GROQ_API_KEY: str = ""  # Fast LLM API
     EMBEDDING_MODEL: str = str(BASE_DIR / "models" / "embedding" / "all-MiniLM-L6-v2")
 
