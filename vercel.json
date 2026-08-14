@@ -1,8 +1,7 @@
 {
   "framework": null,
-  "installCommand": "pip install fastapi uvicorn[standard] sqlalchemy langchain langchain-community chromadb sentence-transformers passlib[bcrypt] pydantic pydantic-settings pyjwt python-multipart python-dotenv requests psutil aiofiles pypdf python-docx duckduckgo-search google-genai huggingface-hub pillow pandas prometheus-client reportlab feedparser",
+  "installCommand": "pip install -r requirements-vercel.txt",
   "buildCommand": "echo 'Build complete'",
-  "outputDirectory": null,
   "routes": [
     {
       "src": "/(.*)",
