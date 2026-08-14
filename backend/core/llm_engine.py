@@ -187,7 +187,11 @@ class LLMEngine:
                 filename = parts[-1]
                 logger.info("Fetching %s from %s ...", filename, repo_id)
                 
-                cached_path = hf_hub_download(repo_id=repo_id, filename=filename)
+                cached_path = hf_hub_download(
+                    repo_id=repo_id, 
+                    filename=filename, 
+                    token=settings.HUGGINGFACE_API_KEY if settings.HUGGINGFACE_API_KEY else None
+                )
                 self.model_path = cached_path
                 model_file = Path(cached_path)
             except Exception as e:
