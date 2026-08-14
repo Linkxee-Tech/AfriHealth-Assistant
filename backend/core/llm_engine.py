@@ -404,21 +404,16 @@ class LLMEngine:
 
     def _stream_huggingface(self, prompt: str, max_tokens: int, temperature: float, top_p: float) -> Generator[str, None, None]:
         """Stream using Hugging Face Inference API."""
-        try:
-            for chunk in self._model.text_generation(
-                prompt,
-                max_new_tokens=max_tokens,
-                temperature=temperature,
-                top_p=top_p,
-                stream=True,
-                details=True,
-            ):
-                if hasattr(chunk, "token") and chunk.token.text:
-                    yield chunk.token.text
-        except (StopIteration, RuntimeError) as e:
-            if "StopIteration" in str(e):
-                return
-            raise e
+        for chunk in self._model.text_generation(
+            prompt,
+            max_new_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            stream=True,
+            details=True,
+        ):
+            if hasattr(chunk, "token") and chunk.token.text:
+                yield chunk.token.text
 
     def _stream_groq(self, prompt: str, max_tokens: int, temperature: float, top_p: float) -> Generator[str, None, None]:
         """Stream using Groq API."""

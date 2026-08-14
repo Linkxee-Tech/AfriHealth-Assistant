@@ -21,10 +21,11 @@ The AfriHealth Assistant now supports **both local and remote LLM models**. For 
    - Create a free account
    - Navigate to Settings → Access Tokens
    - Create a new token (read permission is sufficient)
+   Token_read=hf_YOUR_READ_TOKEN_HERE
 2. **Update `.env`:**
    ```env
    LLM_PROVIDER=huggingface
-   HUGGINGFACE_API_KEY=hf_YOUR_API_KEY_HERE
+   HUGGINGFACE_API_KEY=hf_YOUR_TOKEN_HERE
    HUGGINGFACE_MODEL_ID=meta-llama/Llama-2-7b-chat-hf
    MODEL_PATH=
    ```
