@@ -319,14 +319,14 @@ class LLMEngine:
 
     def _generate_huggingface(self, prompt: str, max_tokens: int, temperature: float, top_p: float) -> str:
         """Generate using Hugging Face Inference API."""
-        response = self._model.text_generation(
-            prompt,
-            max_new_tokens=max_tokens,
-            temperature=temperature,
+        response = self._model.chat_completion(
+            messages=[{"role": "user", "content": prompt}],
+            model=settings.HUGGINGFACE_MODEL_ID,
+            max_tokens=max_tokens,
+            temperature=max(temperature, 0.01),
             top_p=top_p,
-            details=False,
         )
-        return response.strip()
+        return response.choices[0].message.content.strip()
 
     def _generate_groq(self, prompt: str, max_tokens: int, temperature: float, top_p: float) -> str:
         """Generate using Groq API."""
@@ -412,39 +412,31 @@ class LLMEngine:
     def _stream_huggingface(self, prompt: str, max_tokens: int, temperature: float, top_p: float) -> Generator[str, None, None]:
         """Stream using Hugging Face Inference API."""
         try:
-            for chunk in self._model.text_generation(
-                prompt,
-                max_new_tokens=max_tokens,
+            stream = self._model.chat_completion(
+                messages=[{"role": "user", "content": prompt}],
+                model=settings.HUGGINGFACE_MODEL_ID,
+                max_tokens=max_tokens,
                 temperature=max(temperature, 0.01),  # HF requires > 0
                 top_p=top_p,
                 stream=True,
-                details=True,
-            ):
-                try:
-                    if hasattr(chunk, "token") and chunk.token and chunk.token.text:
-                        text = chunk.token.text
-                        # Skip special tokens
-                        if not text.startswith("<") or not text.endswith(">"):
-                            yield text
-                    elif isinstance(chunk, str) and chunk:
-                        yield chunk
-                except StopIteration:
-                    return
-        except StopIteration:
-            return
+            )
+            for chunk in stream:
+                if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                    yield chunk.choices[0].delta.content
         except Exception as exc:
             logger.warning("HuggingFace stream error: %s", exc)
             # Fall back to non-streaming call
             try:
-                result = self._model.text_generation(
-                    prompt,
-                    max_new_tokens=max_tokens,
+                result = self._model.chat_completion(
+                    messages=[{"role": "user", "content": prompt}],
+                    model=settings.HUGGINGFACE_MODEL_ID,
+                    max_tokens=max_tokens,
                     temperature=max(temperature, 0.01),
                     top_p=top_p,
-                    details=False,
                 )
-                if result:
-                    words = result.split()
+                if result and result.choices:
+                    content = result.choices[0].message.content
+                    words = content.split()
                     import time as _time
                     for i, w in enumerate(words):
                         _time.sleep(0.01)
