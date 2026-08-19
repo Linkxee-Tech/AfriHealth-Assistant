@@ -159,6 +159,13 @@ use the authenticated pages. The frontend/backend API seam is
 6. Clinical Support
 7. Settings
 8. About
+9. Medications
+10. Sutbreak Alerts
+11. Symptom Checker
+
+## Admin Login
+1. Admin Dashboard
+2. Admin Panel
 
 ## Backend capabilities
 

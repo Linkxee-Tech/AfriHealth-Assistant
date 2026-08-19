@@ -22,6 +22,14 @@
     {
       "prompt_id": "tp_002",
       "prompt": "What are the early warning signs of severe dehydration in children, and how should oral rehydration therapy be administered?"
+    },
+    {
+      "prompt_id": "tp_003",
+      "prompt": "Ina da zazzabi mai tsanani, ciwon kai, da ciwon jiki. Ina zaune a yankin da sauro ke da yawa. Me zai iya zama?"
+    },
+    {
+      "prompt_id": "tp_004",
+      "prompt": "Nina homa kali, maumivu ya kichwa, na maumivu ya misuli. Ninaishi katika eneo lenye mbu wengi. Inaweza kuwa nini?"
     }
   ],
   "model": {

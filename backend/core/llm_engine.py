@@ -1,5 +1,5 @@
-"""
-LLM Engine — Hybrid support for local (llama.cpp) and remote (Hugging Face, Groq, Gemini) models.
+﻿"""
+LLM Engine â€” Hybrid support for local (llama.cpp) and remote (Hugging Face, Groq, Gemini) models.
 
 Design:
   - Lazy-loads the model on first call (not at import time).
@@ -25,18 +25,18 @@ try:
     from llama_cpp import Llama
     _MODEL_AVAILABLE = True
 except ImportError:
-    logger.warning("llama-cpp-python not installed — local LLM engine running in STUB mode.")
+    logger.warning("llama-cpp-python not installed â€” local LLM engine running in STUB mode.")
 
 _HUGGINGFACE_AVAILABLE = False
 try:
     from huggingface_hub import InferenceClient
     _HUGGINGFACE_AVAILABLE = True
 except ImportError:
-    logger.debug("huggingface-hub not installed — remote Hugging Face API unavailable.")
+    logger.debug("huggingface-hub not installed â€” remote Hugging Face API unavailable.")
 
 
 class LLMEngine:
-    """Manages the LLM — either local GGUF via llama.cpp or remote API."""
+    """Manages the LLM â€” either local GGUF via llama.cpp or remote API."""
 
     def __init__(
         self,
@@ -46,8 +46,9 @@ class LLMEngine:
         provider: str = None,
     ):
         self.provider = provider or settings.LLM_PROVIDER
+        self._explicit_model_path = model_path is not None
         raw_path = model_path or settings.MODEL_PATH or ""
-        # Keep URLs as raw strings — resolve_project_path mangles them on Windows
+        # Keep URLs as raw strings â€” resolve_project_path mangles them on Windows
         if raw_path.startswith("http://") or raw_path.startswith("https://"):
             self.model_path = raw_path
         else:
@@ -63,13 +64,13 @@ class LLMEngine:
 
     # ------------------------------------------------------------------
     def load_model(self) -> bool:
-        """Load the model — either local GGUF or remote API. Returns True on success."""
+        """Load the model â€” either local GGUF or remote API. Returns True on success."""
         if self._loaded:
             return True
 
         t0 = time.perf_counter()
 
-        # Remote providers don't require "loading" — just validate API keys
+        # Remote providers don't require "loading" â€” just validate API keys
         if self.provider == "huggingface":
             return self._load_huggingface(t0)
         elif self.provider == "groq":
@@ -168,7 +169,7 @@ class LLMEngine:
     def _load_local(self, t0: float) -> bool:
         """Load local GGUF model via llama.cpp."""
         if not _MODEL_AVAILABLE:
-            logger.warning("llama-cpp-python not available — stub mode.")
+            logger.warning("llama-cpp-python not available â€” stub mode.")
             self._load_error = "llama-cpp-python is not installed"
             self._loaded = True
             return False
@@ -177,20 +178,23 @@ class LLMEngine:
         is_testing = "pytest" in sys.modules or any("pytest" in arg for arg in sys.argv)
         model_file = None
         
-        # 1. Check local models/llm folder relative to project root first (100% offline fallback)
+        # 1. Resolve the requested local model. If the caller passed a specific
+        # missing path, do not silently load a different fallback model.
         local_fallback = Path(resolve_project_path("models/llm/phi-3-mini-q4.gguf"))
-        fallbacks = [
+        fallback_paths = [
             str(local_fallback),
             "D:/Phi-3-mini-4k-instruct-q4.gguf",
             "D:/Phi-3-mini-4k-instruct-q4.GGUF",
             "D:/phi-3-mini-q4.gguf",
             "D:/phi-3-mini.gguf",
         ]
-        
-        # Also check if self.model_path is already a valid local file
+        fallbacks = []
         if self.model_path and not self.model_path.startswith("http"):
-            fallbacks.insert(0, self.model_path)
-            
+            fallbacks.append(self.model_path)
+            if not self._explicit_model_path:
+                fallbacks.extend(fallback_paths)
+        elif not self._explicit_model_path and not self.model_path.startswith("http"):
+            fallbacks.extend(fallback_paths)
         for fb in fallbacks:
             fb_path = Path(fb)
             if fb_path.exists():
@@ -199,8 +203,18 @@ class LLMEngine:
                 logger.info("Found local model file at %s", fb_path)
                 break
 
-        # 2. If not found locally, and the path is a HuggingFace URL, try to download it
+        # 2. If explicitly enabled, download a remote HuggingFace GGUF.
+        # Chat requests must not block on multi-GB downloads by default.
         if not model_file and self.model_path and "huggingface.co" in self.model_path:
+            if not settings.AUTO_DOWNLOAD_MODEL:
+                logger.warning(
+                    "Local model not found and AUTO_DOWNLOAD_MODEL is disabled - stub mode."
+                )
+                self._load_error = (
+                    "Local model not found; set AUTO_DOWNLOAD_MODEL=true to download from HuggingFace"
+                )
+                self._loaded = True
+                return False
             logger.info("Local model not found. HuggingFace URL detected. Downloading model automatically...")
             try:
                 import urllib.parse
@@ -230,7 +244,7 @@ class LLMEngine:
                 return False
 
         if not model_file or not model_file.exists():
-            logger.warning("Model file not found at %s — stub mode.", self.model_path)
+            logger.warning("Model file not found at %s â€” stub mode.", self.model_path)
             self._load_error = f"Model file not found: {self.model_path}"
             self._loaded = True
             return False
@@ -254,7 +268,7 @@ class LLMEngine:
             return False
 
         try:
-            logger.info("Loading model from %s …", self.model_path)
+            logger.info("Loading model from %s â€¦", self.model_path)
             load_kwargs = {
                 "model_path": self.model_path,
                 "n_threads": self.n_threads,
@@ -286,7 +300,7 @@ class LLMEngine:
         top_p: float = None,
         system_prompt: str = None,
     ) -> str:
-        """Blocking generation — supports local, Hugging Face, Groq, or Gemini."""
+        """Blocking generation â€” supports local, Hugging Face, Groq, or Gemini."""
         if not self._loaded:
             self.load_model()
 
@@ -305,7 +319,7 @@ class LLMEngine:
             elif self.provider == "gemini":
                 return self._generate_gemini(prompt, max_tokens, temperature, top_p)
             else:
-                # Local llama.cpp — use chat_completion so system_prompt is respected
+                # Local llama.cpp â€” use chat_completion so system_prompt is respected
                 return self._generate_local(prompt, max_tokens, temperature, top_p, system_prompt=system_prompt)
         except Exception as exc:
             logger.error("LLM generation error: %s", exc)
@@ -369,7 +383,7 @@ class LLMEngine:
         top_p: float = None,
         system_prompt: str = None,
     ) -> Generator[str, None, None]:
-        """Streaming generation — yields text chunks as they are produced."""
+        """Streaming generation â€” yields text chunks as they are produced."""
         if not self._loaded:
             self.load_model()
 
@@ -393,7 +407,7 @@ class LLMEngine:
                 for chunk in self._stream_gemini(prompt, max_tokens, temperature, top_p):
                     yield chunk
             else:
-                # Local llama.cpp — pass system_prompt so language is enforced
+                # Local llama.cpp â€” pass system_prompt so language is enforced
                 for chunk in self._stream_local(prompt, max_tokens, temperature, top_p, system_prompt=system_prompt):
                     yield chunk
         except (StopIteration, RuntimeError) as exc:

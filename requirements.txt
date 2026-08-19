@@ -42,6 +42,7 @@ reportlab
 pytest
 httpx
 pytest-asyncio
+coverage 
 
 # ===== Online / Hybrid Mode =====
 # Web Search

@@ -14,6 +14,7 @@ from backend.core.hybrid_orchestrator import hybrid_orchestrator
 from backend.core.prompt_templates import build_rag_prompt, get_system_prompt
 from backend.core.gemini_integration import gemini_client
 from backend.core.multilingual import multilingual_engine
+from backend.config import settings
 from backend.database.db_manager import db_manager
 from backend.utils.logger import get_logger
 from backend.utils.helpers import generate_session_id, now_str
@@ -109,8 +110,8 @@ class ChatService:
         # Auto-detect language
         detected_language = _detect_language(query, fallback=language)
 
-        # Attempt to load translation models (no-op if transformers unavailable)
-        if not multilingual_engine.models_loaded:
+        # Translation model downloads are heavy; keep them opt-in for responsive chat.
+        if settings.ENABLE_TRANSLATION_MODELS and not multilingual_engine.models_loaded:
             multilingual_engine.load_models()
 
         if hybrid:

@@ -23,10 +23,12 @@ class Settings(BaseSettings):
     # Core LLM settings - We default to a highly optimized Q4 GGUF of Phi-3-mini to pass the ADTC 7GB memory rule
     MODEL_PATH: str = "https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf/resolve/main/Phi-3-mini-4k-instruct-q4.gguf"
     LLM_PROVIDER: str = "local"  # Options: "local", "huggingface", "gemini", "groq"
+    AUTO_DOWNLOAD_MODEL: bool = False
     HUGGINGFACE_API_KEY: str = ""  # Free inference API at huggingface.co
     HUGGINGFACE_MODEL_ID: str = "Qwen/Qwen2.5-7B-Instruct"
     GROQ_API_KEY: str = ""  # Fast LLM API
     EMBEDDING_MODEL: str = str(BASE_DIR / "models" / "embedding" / "all-MiniLM-L6-v2")
+    ENABLE_TRANSLATION_MODELS: bool = False
 
     # Database
     DB_PATH: str = str(BASE_DIR / "data" / "afrihealth.db")
