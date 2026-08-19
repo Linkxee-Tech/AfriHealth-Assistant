@@ -132,17 +132,16 @@ Separating the backend (FastAPI) from the frontend (Streamlit) allows:
 
 ## 6. Screenshots and Video Demo
 
-> **⚠️ ACTION REQUIRED:** Please add screenshots of the running app below and insert your 2-minute pitch video link.
+> **⚠️ ACTION REQUIRED:**I added screenshots of the running app below and insert in the 3-minute pitch video link.
 
 ### Screenshots
-- [ ] Screenshot 1: Login screen
-- [ ] Screenshot 2: Medical chat in English
-- [ ] Screenshot 3: Chat in Hausa/Swahili (language support)
-- [ ] Screenshot 4: Admin panel — user management
-- [ ] Screenshot 5: Source citations shown after answer
+- [ ] Screenshot 1: Login screen ![alt text](<Login Page.png>)
+- [ ] Screenshot 2: Medical chat in English  ![alt text](<English Chat.png>)
+- [ ] Screenshot 3: Admin panel — user management ![alt text](<Admin Panel.png>)
+- [ ] Screenshot 4: Source citations shown after answer are shown below each chart
 
 ### 2-Minute Pitch Video
-> **Video Link:** *(Insert your YouTube or Vimeo link here)*
+> [**Video Link:** *https://youtu.be/SyuLLnCAJTM?si=creTaoMIMXpVXuw6*]
 
 ---
 

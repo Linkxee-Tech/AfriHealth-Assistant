@@ -177,8 +177,8 @@ class LLMEngine:
         is_testing = "pytest" in sys.modules or any("pytest" in arg for arg in sys.argv)
         model_file = None
         
-        # 1. Check local model/ folder relative to project root first (100% offline fallback)
-        local_fallback = Path(resolve_project_path("model/Phi-3-mini-4k-instruct-q4.gguf"))
+        # 1. Check local models/llm folder relative to project root first (100% offline fallback)
+        local_fallback = Path(resolve_project_path("models/llm/phi-3-mini-q4.gguf"))
         fallbacks = [
             str(local_fallback),
             "D:/Phi-3-mini-4k-instruct-q4.gguf",
@@ -284,6 +284,7 @@ class LLMEngine:
         max_tokens: int = None,
         temperature: float = None,
         top_p: float = None,
+        system_prompt: str = None,
     ) -> str:
         """Blocking generation — supports local, Hugging Face, Groq, or Gemini."""
         if not self._loaded:
@@ -304,23 +305,26 @@ class LLMEngine:
             elif self.provider == "gemini":
                 return self._generate_gemini(prompt, max_tokens, temperature, top_p)
             else:
-                # Local llama.cpp
-                return self._generate_local(prompt, max_tokens, temperature, top_p)
+                # Local llama.cpp — use chat_completion so system_prompt is respected
+                return self._generate_local(prompt, max_tokens, temperature, top_p, system_prompt=system_prompt)
         except Exception as exc:
             logger.error("LLM generation error: %s", exc)
             return f"[LLM error: {exc}]"
 
-    def _generate_local(self, prompt: str, max_tokens: int, temperature: float, top_p: float) -> str:
-        """Generate using local llama.cpp model."""
-        output = self._model(
-            prompt,
+    def _generate_local(self, prompt: str, max_tokens: int, temperature: float, top_p: float, system_prompt: str = None) -> str:
+        """Generate using local llama.cpp chat_completion so system_prompt language is enforced."""
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+        output = self._model.create_chat_completion(
+            messages=messages,
             max_tokens=max_tokens,
             temperature=temperature,
             top_p=top_p,
             stop=["User:", "\n\nUser:", "Human:"],
-            echo=False,
         )
-        return output["choices"][0]["text"].strip()
+        return output["choices"][0]["message"]["content"].strip()
 
     def _generate_huggingface(self, prompt: str, max_tokens: int, temperature: float, top_p: float) -> str:
         """Generate using Hugging Face Inference API."""
@@ -363,6 +367,7 @@ class LLMEngine:
         max_tokens: int = None,
         temperature: float = None,
         top_p: float = None,
+        system_prompt: str = None,
     ) -> Generator[str, None, None]:
         """Streaming generation — yields text chunks as they are produced."""
         if not self._loaded:
@@ -388,8 +393,8 @@ class LLMEngine:
                 for chunk in self._stream_gemini(prompt, max_tokens, temperature, top_p):
                     yield chunk
             else:
-                # Local llama.cpp
-                for chunk in self._stream_local(prompt, max_tokens, temperature, top_p):
+                # Local llama.cpp — pass system_prompt so language is enforced
+                for chunk in self._stream_local(prompt, max_tokens, temperature, top_p, system_prompt=system_prompt):
                     yield chunk
         except (StopIteration, RuntimeError) as exc:
             # Python 3.7+: StopIteration inside a generator becomes RuntimeError
@@ -398,19 +403,23 @@ class LLMEngine:
             logger.error("LLM stream error: %s", exc)
             yield f"[LLM stream error: {exc}]"
 
-    def _stream_local(self, prompt: str, max_tokens: int, temperature: float, top_p: float) -> Generator[str, None, None]:
-        """Stream using local llama.cpp model."""
-        stream = self._model(
-            prompt,
+    def _stream_local(self, prompt: str, max_tokens: int, temperature: float, top_p: float, system_prompt: str = None) -> Generator[str, None, None]:
+        """Stream using local llama.cpp chat_completion so language system_prompt is enforced."""
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+        stream = self._model.create_chat_completion(
+            messages=messages,
             max_tokens=max_tokens,
             temperature=temperature,
             top_p=top_p,
             stop=["User:", "\n\nUser:", "Human:"],
-            echo=False,
             stream=True,
         )
         for chunk in stream:
-            token = chunk["choices"][0]["text"]
+            delta = chunk["choices"][0].get("delta", {})
+            token = delta.get("content", "")
             if token:
                 yield token
 

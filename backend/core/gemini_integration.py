@@ -12,38 +12,65 @@ from backend.utils.metrics import track_api_cost
 
 logger = logging.getLogger(__name__)
 
-_GENAI_AVAILABLE = False
-try:
-    from google import genai
-    from google.genai import types
-    _GENAI_AVAILABLE = True
-except ImportError:
-    logger.warning("google-genai not installed. Cloud fallback disabled.")
+genai = None
+types = None
+_GENAI_IMPORT_ATTEMPTED = False
+
+
+def _load_genai_sdk() -> bool:
+    """Import google-genai only when a Gemini feature is used."""
+    global genai, types, _GENAI_IMPORT_ATTEMPTED
+    if genai is not None and types is not None:
+        return True
+    if _GENAI_IMPORT_ATTEMPTED:
+        return False
+    _GENAI_IMPORT_ATTEMPTED = True
+    try:
+        from google import genai as _genai
+        from google.genai import types as _types
+        genai = _genai
+        types = _types
+        return True
+    except ImportError:
+        logger.warning("google-genai not installed. Cloud fallback disabled.")
+        return False
 
 
 class GeminiIntegration:
     def __init__(self):
         self.api_key = settings.GEMINI_API_KEY
-        self.is_configured = bool(self.api_key) and _GENAI_AVAILABLE
+        self.is_configured = bool(self.api_key)
         self.model_name = "gemini-2.0-flash"   # fast + widely available
         self._client = None
+        self._client_error = None
         self._total_tokens = 0
         self._total_cost = 0.0
 
-        if self.is_configured:
-            try:
-                self._client = genai.Client(api_key=self.api_key)
-                logger.info("Gemini cloud fallback ready (model=%s).", self.model_name)
-            except Exception as exc:
-                logger.error("Failed to create Gemini client: %s", exc)
-                self.is_configured = False
-        else:
-            logger.warning("Gemini API key not configured or google-genai not installed. Cloud fallback disabled.")
+    def _ensure_client(self) -> bool:
+        if not self.api_key:
+            self.is_configured = False
+            return False
+        if self._client is not None:
+            return True
+        if not _load_genai_sdk():
+            self.is_configured = False
+            self._client_error = "google-genai not installed"
+            return False
+        try:
+            self._client = genai.Client(api_key=self.api_key)
+            self.is_configured = True
+            logger.info("Gemini cloud fallback ready (model=%s).", self.model_name)
+            return True
+        except Exception as exc:
+            logger.error("Failed to create Gemini client: %s", exc)
+            self._client_error = str(exc)
+            self.is_configured = False
+            return False
 
     # ------------------------------------------------------------------
     def get_status(self) -> Dict[str, Any]:
-        if not self.is_configured:
-            return {"status": "offline", "configured": False}
+        if not self._ensure_client():
+            return {"status": "offline", "configured": False, "error": self._client_error}
         try:
             resp = self._client.models.generate_content(
                 model=self.model_name,
@@ -56,7 +83,7 @@ class GeminiIntegration:
 
     # ------------------------------------------------------------------
     def generate(self, prompt: str, system_instruction: str = None) -> str:
-        if not self.is_configured:
+        if not self._ensure_client():
             raise ValueError("Gemini API not configured")
         try:
             config = types.GenerateContentConfig(
@@ -91,7 +118,7 @@ class GeminiIntegration:
 
     # ------------------------------------------------------------------
     def stream_generate(self, prompt: str, system_instruction: str = None) -> Generator[str, None, None]:
-        if not self.is_configured:
+        if not self._ensure_client():
             raise ValueError("Gemini API not configured")
         try:
             config = types.GenerateContentConfig(
@@ -122,7 +149,7 @@ class GeminiIntegration:
 
     def transcribe_audio(self, audio_bytes: bytes, mime_type: str = "audio/wav") -> str:
         """Transcribe a short voice question through the configured cloud model."""
-        if not self.is_configured:
+        if not self._ensure_client():
             raise ValueError("Audio transcription requires a configured cloud provider")
         prompt = (
             "Transcribe this recording exactly as spoken. Return only the transcript, "

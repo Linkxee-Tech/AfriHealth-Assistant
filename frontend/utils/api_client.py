@@ -78,13 +78,13 @@ def reset_password(token: str, new_password: str):
 # ---------------------------------------------------------------------------
 # Chat
 # ---------------------------------------------------------------------------
-def stream_chat(query: str, language: str, hybrid: bool = True, detail_level: str = "Standard"):
+def stream_chat(query: str, language: str, clinical_mode: str = None, hybrid: bool = True, detail_level: str = "Standard"):
     """Yields response chunks including __SOURCES__ header. Maps to POST /chat/stream."""
     if config.BACKEND_CONNECTED:
         try:
             with requests.post(
                 f"{config.BACKEND_BASE_URL}/chat/stream",
-                json={"query": query, "language": language, "hybrid": hybrid},
+                json={"query": query, "language": language, "clinical_mode": clinical_mode, "hybrid": hybrid, "detail_level": detail_level},
                 headers=get_auth_headers(),
                 stream=True,
                 timeout=120,

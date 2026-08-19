@@ -17,6 +17,7 @@ python-dotenv
 passlib[bcrypt]
 bcrypt<4
 
+
 # ===== Database =====
 sqlalchemy
 alembic

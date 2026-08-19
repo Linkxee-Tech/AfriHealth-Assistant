@@ -18,20 +18,30 @@ from backend.core.prompt_templates import build_rag_prompt, get_system_prompt
 
 logger = get_logger(__name__)
 
-_CHROMA_AVAILABLE = False
-try:
-    import chromadb
-    from chromadb.config import Settings as ChromaSettings
-    _CHROMA_AVAILABLE = True
-except ImportError:
-    logger.warning("chromadb not installed - RAG running in LLM-only mode.")
+chromadb = None
+ChromaSettings = None
+_CHROMA_IMPORT_ATTEMPTED = False
 
-_LANGCHAIN_AVAILABLE = False
-try:
-    from langchain_text_splitters import RecursiveCharacterTextSplitter
-    _LANGCHAIN_AVAILABLE = True
-except ImportError:
-    logger.warning("langchain not installed - using built-in chunking.")
+
+def _get_chromadb():
+    """Import ChromaDB only when the vector store is initialized."""
+    global chromadb, ChromaSettings, _CHROMA_IMPORT_ATTEMPTED
+    if chromadb is not None and ChromaSettings is not None:
+        return chromadb, ChromaSettings
+    if _CHROMA_IMPORT_ATTEMPTED:
+        return None, None
+    _CHROMA_IMPORT_ATTEMPTED = True
+    try:
+        import chromadb as _chromadb
+        from chromadb.config import Settings as _ChromaSettings
+        chromadb = _chromadb
+        ChromaSettings = _ChromaSettings
+        return chromadb, ChromaSettings
+    except ImportError:
+        logger.warning("chromadb not installed - RAG running in LLM-only mode.")
+        return None, None
+
+
 
 
 class RAGEngine:
@@ -65,15 +75,16 @@ class RAGEngine:
     def initialize(self):
         if self._initialized:
             return
-        if not _CHROMA_AVAILABLE:
+        chroma_module, chroma_settings = _get_chromadb()
+        if chroma_module is None or chroma_settings is None:
             logger.warning("ChromaDB unavailable - RAG in LLM-only mode.")
             self._initialized = True
             return
         try:
             Path(self.vector_db_path).mkdir(parents=True, exist_ok=True)
-            self._chroma_client = chromadb.PersistentClient(
+            self._chroma_client = chroma_module.PersistentClient(
                 path=self.vector_db_path,
-                settings=ChromaSettings(anonymized_telemetry=False),
+                settings=chroma_settings(anonymized_telemetry=False),
             )
             self._collection = self._chroma_client.get_or_create_collection(
                 name=self.COLLECTION_NAME,

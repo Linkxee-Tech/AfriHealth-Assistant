@@ -5,8 +5,9 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class ChatRequest(BaseModel):
-    query: str = Field(..., min_length=1, max_length=4096, description="User's health question")
+    query: str = Field(..., min_length=1, max_length=4096, description="Healthcare worker's clinical question")
     language: str = Field("English", description="Response language: English | Hausa | Swahili | Yoruba | Igbo | French | Pidgin")
+    clinical_mode: Optional[str] = Field(None, description="Clinical mode: Assess Case | Differential | Investigations | Treatment | Medication Check | Referral")
     session_id: Optional[str] = Field(None, description="Optional session ID for conversation continuity")
     top_k: int = Field(3, ge=1, le=10, description="Number of RAG context chunks to retrieve")
     detail_level: str = Field("Standard", description="Response length: Brief, Standard, or Detailed")
@@ -19,6 +20,16 @@ class ChatRequest(BaseModel):
         allowed = {"English", "Hausa", "Swahili", "Yoruba", "Igbo", "French", "Pidgin"}
         if v not in allowed:
             raise ValueError(f"language must be one of {allowed}")
+        return v
+
+    @field_validator("clinical_mode")
+    @classmethod
+    def validate_clinical_mode(cls, v):
+        if v is None:
+            return v
+        allowed = {"Assess Case", "Differential", "Investigations", "Treatment", "Medication Check", "Referral"}
+        if v not in allowed:
+            raise ValueError(f"clinical_mode must be one of {allowed}")
         return v
         
     @field_validator("detail_level")

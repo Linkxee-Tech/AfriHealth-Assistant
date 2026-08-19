@@ -53,10 +53,19 @@ DEFAULT_THEME = "Dark"
 LANGUAGES = ["English", "Hausa", "Swahili", "Yoruba", "Igbo", "French", "Pidgin"]
 
 QUICK_QUESTIONS = [
-    "What should I do if I have a fever?",
-    "What is malaria?",
-    "How do I treat dehydration?",
-    "What are signs of typhoid?",
+    "Patient has fever, headache, muscle aches. Rules out malaria?",
+    "Adult with severe dehydration — fluid resuscitation protocol?",
+    "Child with fast breathing and chest indrawing. Assess?",
+    "Signs of sepsis — immediate management steps?",
+]
+
+CLINICAL_MODES = [
+    "Assess Case",
+    "Differential",
+    "Investigations",
+    "Treatment",
+    "Medication Check",
+    "Referral",
 ]
 
 HEALTH_METRICS = [

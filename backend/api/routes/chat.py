@@ -33,6 +33,7 @@ async def chat(request: ChatRequest, current_user = Depends(get_current_user)):
         result = chat_service.generate_response(
             query=query,
             language=request.language,
+            clinical_mode=request.clinical_mode,
             session_id=request.session_id,
             top_k=request.top_k,
             detail_level=request.detail_level,
@@ -62,6 +63,7 @@ async def chat_stream(request: ChatRequest, current_user = Depends(get_current_u
             for token in chat_service.stream_response(
                 query=query,
                 language=request.language,
+                clinical_mode=request.clinical_mode,
                 session_id=request.session_id,
                 top_k=request.top_k,
                 detail_level=request.detail_level,

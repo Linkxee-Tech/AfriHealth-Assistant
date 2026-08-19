@@ -13,6 +13,7 @@ from backend.core.embedding_service import embedding_service
 from backend.core.hybrid_orchestrator import hybrid_orchestrator
 from backend.core.prompt_templates import build_rag_prompt, get_system_prompt
 from backend.core.gemini_integration import gemini_client
+from backend.core.multilingual import multilingual_engine
 from backend.database.db_manager import db_manager
 from backend.utils.logger import get_logger
 from backend.utils.helpers import generate_session_id, now_str
@@ -30,12 +31,14 @@ LANG_MAP = {
     "sw": "Swahili",
     "yo": "Yoruba",
     "ig": "Igbo",
+    "pcm": "Pidgin",
     "fr": "French",
     "en": "English",
 }
 
 def _detect_language(query: str, fallback: str) -> str:
     """Auto-detect language of user query and map it to supported languages."""
+    # First try the langdetect library (if installed)
     if detect:
         try:
             lang_code = detect(query)
@@ -43,6 +46,26 @@ def _detect_language(query: str, fallback: str) -> str:
                 return LANG_MAP[lang_code]
         except Exception:
             pass
+
+    # Heuristic fallback for Nigerian Pidgin / West African Pidgin
+    pidgin_tokens = [
+        "how you dey",
+        "how una dey",
+        "wetin",
+        "wey",
+        "you dey",
+        "una",
+        "mek",
+        "e no",
+        "no be",
+        "abi",
+        "pidgin",
+    ]
+    q_lower = query.lower()
+    for t in pidgin_tokens:
+        if t in q_lower:
+            return "Pidgin"
+
     return fallback
 
 
@@ -72,6 +95,7 @@ class ChatService:
         self,
         query: str,
         language: str = "English",
+        clinical_mode: str = None,
         session_id: str = None,
         top_k: int = 5,
         detail_level: str = "Standard",
@@ -85,6 +109,10 @@ class ChatService:
         # Auto-detect language
         detected_language = _detect_language(query, fallback=language)
 
+        # Attempt to load translation models (no-op if transformers unavailable)
+        if not multilingual_engine.models_loaded:
+            multilingual_engine.load_models()
+
         if hybrid:
             ctx = hybrid_orchestrator.prepare_context(query, top_k, user_id=user_id)
             context_str = ctx["context_str"]
@@ -92,8 +120,12 @@ class ChatService:
             mode = ctx["mode"]
         else:
             result = rag_engine.generate_answer(query, language=detected_language, top_k=top_k, user_id=user_id)
+            answer_text = result["answer"]
+            # Translate back to user's language if needed
+            if detected_language != "English":
+                answer_text = multilingual_engine.translate_from_english(answer_text, detected_language)
             return {
-                "answer": result["answer"],
+                "answer": answer_text,
                 "sources": result["sources"],
                 "mode": "OFFLINE",
                 "session_id": session_id or generate_session_id(),
@@ -103,8 +135,8 @@ class ChatService:
                 "knowledge_base_hits": rag_engine.get_collection_count()
             }
 
-        system_prompt = get_system_prompt(detected_language)
-        rag_prompt = build_rag_prompt(query, context_str, detail_level)
+        system_prompt = get_system_prompt(detected_language, clinical_mode=clinical_mode)
+        rag_prompt = build_rag_prompt(query, context_str, detail_level, detected_language)
         full_prompt = f"{rag_prompt}"   # system_instruction is passed separately
 
         if not llm_engine._loaded:
@@ -120,10 +152,14 @@ class ChatService:
             try:
                 answer = _use_gemini_generate(full_prompt, system_prompt)
             except Exception:
-                logger.exception("Cloud AI (Gemini) fallback failed — falling back to stub")
-                answer = llm_engine.generate(full_prompt)
+                logger.exception("Cloud AI (Gemini) fallback failed — falling back to local LLM")
+                answer = llm_engine.generate(full_prompt, system_prompt=system_prompt)
         else:
-            answer = llm_engine.generate(full_prompt)
+            answer = llm_engine.generate(full_prompt, system_prompt=system_prompt)
+
+        # Translate answer back to user's language if necessary
+        if detected_language != "English":
+            answer = multilingual_engine.translate_from_english(answer, detected_language)
 
         elapsed_ms = round((time.perf_counter() - t0) * 1000, 2)
 
@@ -134,7 +170,7 @@ class ChatService:
             "session_id": session_id or generate_session_id(),
             "elapsed_ms": elapsed_ms,
             "query": query,
-            "language": language,
+            "language": detected_language,
             "knowledge_base_hits": rag_engine.get_collection_count()
         }
 
@@ -142,6 +178,7 @@ class ChatService:
         self,
         query: str,
         language: str = "English",
+        clinical_mode: str = None,
         session_id: str = None,
         top_k: int = 5,
         detail_level: str = "Standard",
@@ -168,8 +205,8 @@ class ChatService:
         # Emit the first chunk with JSON sources
         yield f"__SOURCES__:{json.dumps(sources)}\n"
 
-        system_prompt = get_system_prompt(detected_language)
-        rag_prompt = build_rag_prompt(query, context_str, detail_level)
+        system_prompt = get_system_prompt(detected_language, clinical_mode=clinical_mode)
+        rag_prompt = build_rag_prompt(query, context_str, detail_level, detected_language)
         full_prompt = f"{rag_prompt}"
 
         if not llm_engine._loaded:
@@ -182,13 +219,33 @@ class ChatService:
         if use_cloud and gemini_client.is_configured:
             try:
                 for chunk in _use_gemini_stream(full_prompt, system_prompt):
-                    yield chunk
+                    # If translation is required and models available, buffer instead of streaming
+                    if detected_language != "English" and multilingual_engine.models_loaded:
+                        buffer_chunks = [chunk]
+                        for c in _use_gemini_stream(full_prompt, system_prompt):
+                            buffer_chunks.append(c)
+                        full = "".join(buffer_chunks)
+                        translated = multilingual_engine.translate_from_english(full, detected_language)
+                        yield translated
+                        return
+                    else:
+                        yield chunk
                 return
             except Exception:
-                logger.exception("Cloud AI (Gemini) streaming failed — falling back to local LLM stub")
+                logger.exception("Cloud AI (Gemini) streaming failed — falling back to local LLM")
 
-        # Local LLM (or stub if model file absent)
-        for chunk in llm_engine.stream_generate(full_prompt):
+        # Local LLM (or stub if model file absent) — always pass system_prompt for language support
+        # If translation required and models loaded, buffer full local LLM stream then translate
+        if detected_language != "English" and multilingual_engine.models_loaded:
+            buffer = []
+            for chunk in llm_engine.stream_generate(full_prompt, system_prompt=system_prompt):
+                buffer.append(chunk)
+            full = "".join(buffer)
+            translated = multilingual_engine.translate_from_english(full, detected_language)
+            yield translated
+            return
+
+        for chunk in llm_engine.stream_generate(full_prompt, system_prompt=system_prompt):
             yield chunk
 
     def save_conversation(self, messages: List[Dict], session_id: str = None, user_id: int = None) -> str:

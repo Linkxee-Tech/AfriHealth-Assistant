@@ -11,7 +11,7 @@ import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from backend.database.db_manager import db_manager
-from backend.config import settings
+from backend.config import resolve_project_path, settings
 
 def _load_secret_key() -> str:
     """Load a configured JWT secret or create a persistent local secret."""
@@ -19,7 +19,7 @@ def _load_secret_key() -> str:
     if configured and configured != "change-this-in-a-local-secrets-file":
         return configured
 
-    secret_path = Path(settings.DB_PATH).expanduser().resolve().parent / ".secret_key"
+    secret_path = resolve_project_path(settings.DB_PATH).expanduser().resolve().parent / ".secret_key"
     try:
         if secret_path.exists():
             value = secret_path.read_text(encoding="utf-8").strip()

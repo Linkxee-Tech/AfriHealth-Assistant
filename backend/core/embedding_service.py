@@ -11,12 +11,25 @@ from backend.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-_EMBEDDINGS_AVAILABLE = False
-try:
-    from sentence_transformers import SentenceTransformer
-    _EMBEDDINGS_AVAILABLE = True
-except ImportError:
-    logger.warning("sentence-transformers not installed — using hash embeddings.")
+SentenceTransformer = None
+_EMBEDDINGS_IMPORT_ATTEMPTED = False
+
+
+def _get_sentence_transformer():
+    """Import sentence-transformers only when embeddings are actually loaded."""
+    global SentenceTransformer, _EMBEDDINGS_IMPORT_ATTEMPTED
+    if SentenceTransformer is not None:
+        return SentenceTransformer
+    if _EMBEDDINGS_IMPORT_ATTEMPTED:
+        return None
+    _EMBEDDINGS_IMPORT_ATTEMPTED = True
+    try:
+        from sentence_transformers import SentenceTransformer as _SentenceTransformer
+        SentenceTransformer = _SentenceTransformer
+        return SentenceTransformer
+    except ImportError:
+        logger.warning("sentence-transformers not installed - using hash embeddings.")
+        return None
 
 
 class EmbeddingService:
@@ -30,7 +43,8 @@ class EmbeddingService:
     def load_model(self):
         if self._loaded:
             return self._model is not None
-        if not _EMBEDDINGS_AVAILABLE:
+        sentence_transformer = _get_sentence_transformer()
+        if sentence_transformer is None:
             self._mode = "hash"
             self._load_error = "sentence-transformers is not installed"
             self._loaded = True
@@ -40,7 +54,7 @@ class EmbeddingService:
             if not model_path.exists():
                 raise FileNotFoundError(f"Local embedding model not found: {self.model_path}")
             logger.info("Loading embedding model from %s ...", self.model_path)
-            self._model = SentenceTransformer(str(model_path))
+            self._model = sentence_transformer(str(model_path))
             self._mode = "sentence-transformer"
             self._loaded = True
             logger.info("Embedding model loaded.")

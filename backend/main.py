@@ -67,22 +67,12 @@ async def lifespan(app: FastAPI):
     db_manager.init_tables()
     logger.info("Database ready at %s", settings.DB_PATH)
 
-    # 2. Load LLM (non-blocking warning if model file absent)
-    llm_engine.load_model()
-
-    # 3. Load embedding model
-    embedding_service.load_model()
-
-    # 4. Init RAG engine (wire dependencies, open ChromaDB)
+    # 2. Wire AI dependencies without blocking API availability. The LLM,
+    # embedding model, and Chroma vector store all lazy-load on first use.
     rag_engine.set_llm(llm_engine)
     rag_engine.set_embedder(embedding_service)
-    rag_engine.initialize()
 
-    logger.info(
-        "All systems ready. Knowledge base: %d docs. Model: %s.",
-        rag_engine.get_collection_count(),
-        "loaded" if llm_engine._model else "stub mode",
-    )
+    logger.info("API ready. AI services will lazy-load on first clinical request.")
 
     yield  # <- app runs here
 

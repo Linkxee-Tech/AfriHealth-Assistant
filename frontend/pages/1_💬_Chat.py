@@ -65,7 +65,18 @@ for i, message in enumerate(st.session_state.messages):
                         )
                         st.rerun()
 
-col_lang, col_detail = st.columns([2, 2])
+col_mode, col_lang, col_detail = st.columns([2, 2, 2])
+with col_mode:
+    clinical_mode = st.selectbox(
+        "⚕️ Mode", ["Auto (Standard Chat)"] + config.CLINICAL_MODES,
+        index=0,
+        key="chat_clinical_mode",
+        label_visibility="collapsed",
+        help="Select a clinical mode for focused decision support"
+    )
+    # Convert 'Auto' back to None for the backend
+    active_mode = None if clinical_mode.startswith("Auto") else clinical_mode
+    
 with col_lang:
     selected_language = st.selectbox(
         "🌍 Language", config.LANGUAGES,
@@ -160,7 +171,7 @@ if prompt:
         sources = []
         started = time.perf_counter()
         with st.spinner("Thinking..."):
-            for chunk in api_client.stream_chat(prompt, st.session_state.get("language", "English"), hybrid=is_hybrid, detail_level=detail_level):
+            for chunk in api_client.stream_chat(prompt, st.session_state.get("language", "English"), clinical_mode=active_mode, hybrid=is_hybrid, detail_level=detail_level):
                 if chunk.startswith("__SOURCES__:"):
                     try:
                         sources = json.loads(chunk.split(":", 1)[1].strip())
